@@ -80,5 +80,21 @@ Dual-axis ComposedChart showing:
 - Precision controls: Day/Week/Month/Year
 - Preferences persisted to localStorage
 
+## User Medical Context
+**Sleeve Gastrectomy**: The user had bariatric surgery on **November 1, 2018**.
+- Pre-surgery peak: ~114kg (July 2018)
+- Post-surgery low: ~86kg (mid-2019)
+- Surgery removed ~80% of stomach capacity
+- This context is included in AI Coach system prompt for personalized advice
+- Post-bariatric considerations: protein-first eating, small frequent meals, vitamin absorption
+
+## Activity-Weight Correlation Algorithm
+Located in `src/app/api/activity-stats/route.ts`:
+- Uses **1 year** of data for meaningful correlations (not short-term)
+- Groups by **month** (not week) to reduce noise from water retention, etc.
+- Compares high activity months (>115% of average) vs low activity months (<85%)
+- Tracks weight trend direction within each month (up/down/flat)
+- Long-term analysis compares step counts during lowest vs highest weight periods
+
 ## Platform
 **Mac desktop only** - Not a mobile app. Optimize for keyboard shortcuts, data density, and wide screen layouts.
