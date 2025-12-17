@@ -146,14 +146,20 @@ async function calculateCorrelations(
 ): Promise<CorrelationInsight[]> {
   const insights: CorrelationInsight[] = [];
 
-  // Get weight data for the same period
-  const weightData = await db
+  // Use 1 year of data for more meaningful correlations (not just 90 days)
+  const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  // Use the OLDER date to get more data (oneYearAgo is older, so use it)
+  const analysisStartDate = oneYearAgo;
+
+  // Get ALL weight data for long-term analysis
+  const allWeightData = await db
     .select()
     .from(weights)
-    .where(gte(weights.date, sinceDate))
     .orderBy(weights.date);
 
-  if (weightData.length < 14) {
+  const recentWeightData = allWeightData.filter(w => w.date >= analysisStartDate);
+
+  if (recentWeightData.length < 30) {
     return [{ type: "neutral", message: "Need more data to calculate correlations" }];
   }
 
@@ -164,115 +170,129 @@ async function calculateCorrelations(
     workoutsByDate.set(w.date, (workoutsByDate.get(w.date) || 0) + w.durationMinutes);
   }
 
-  // Analyze: High activity weeks vs weight change
-  const weeklyData: { weekStart: string; avgSteps: number; workoutMinutes: number; weightChange: number }[] = [];
-
-  // Group by week
-  const weeks = new Map<string, { steps: number[]; workoutMins: number; weights: number[] }>();
-  for (const w of weightData) {
-    const weekStart = getWeekStart(w.date);
-    if (!weeks.has(weekStart)) {
-      weeks.set(weekStart, { steps: [], workoutMins: 0, weights: [] });
+  // Group by MONTH for more stable analysis (not week - too noisy)
+  const months = new Map<string, { steps: number[]; workoutMins: number; weights: number[] }>();
+  for (const w of recentWeightData) {
+    const monthKey = w.date.substring(0, 7); // YYYY-MM
+    if (!months.has(monthKey)) {
+      months.set(monthKey, { steps: [], workoutMins: 0, weights: [] });
     }
-    const week = weeks.get(weekStart)!;
-    week.weights.push(w.weightKg);
+    const month = months.get(monthKey)!;
+    month.weights.push(w.weightKg);
     const daySteps = stepsByDate.get(w.date);
-    if (daySteps) week.steps.push(daySteps);
+    if (daySteps) month.steps.push(daySteps);
     const dayWorkout = workoutsByDate.get(w.date);
-    if (dayWorkout) week.workoutMins += dayWorkout;
+    if (dayWorkout) month.workoutMins += dayWorkout;
   }
 
-  // Calculate weekly averages and weight changes
-  const sortedWeeks = Array.from(weeks.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  for (let i = 1; i < sortedWeeks.length; i++) {
-    const [weekStart, data] = sortedWeeks[i];
-    const prevWeek = sortedWeeks[i - 1][1];
+  // Calculate monthly data with trend direction
+  const sortedMonths = Array.from(months.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  const monthlyData: { month: string; avgSteps: number; workoutMinutes: number; avgWeight: number; weightTrend: "down" | "up" | "flat" }[] = [];
 
+  for (let i = 0; i < sortedMonths.length; i++) {
+    const [month, data] = sortedMonths[i];
     const avgSteps = data.steps.length > 0
       ? data.steps.reduce((a, b) => a + b, 0) / data.steps.length
       : 0;
-    const prevAvgWeight = prevWeek.weights.reduce((a, b) => a + b, 0) / prevWeek.weights.length;
-    const currAvgWeight = data.weights.reduce((a, b) => a + b, 0) / data.weights.length;
+    const avgWeight = data.weights.reduce((a, b) => a + b, 0) / data.weights.length;
 
-    weeklyData.push({
-      weekStart,
+    // Determine weight trend by comparing first and last weight in month
+    let weightTrend: "down" | "up" | "flat" = "flat";
+    if (data.weights.length >= 3) {
+      const firstWeights = data.weights.slice(0, Math.ceil(data.weights.length / 3));
+      const lastWeights = data.weights.slice(-Math.ceil(data.weights.length / 3));
+      const firstAvg = firstWeights.reduce((a, b) => a + b, 0) / firstWeights.length;
+      const lastAvg = lastWeights.reduce((a, b) => a + b, 0) / lastWeights.length;
+      const diff = lastAvg - firstAvg;
+      if (diff < -0.3) weightTrend = "down";
+      else if (diff > 0.3) weightTrend = "up";
+    }
+
+    monthlyData.push({
+      month,
       avgSteps: Math.round(avgSteps),
       workoutMinutes: Math.round(data.workoutMins),
-      weightChange: currAvgWeight - prevAvgWeight,
+      avgWeight,
+      weightTrend,
     });
   }
 
-  if (weeklyData.length < 4) {
-    return [{ type: "neutral", message: "Need more weekly data to calculate correlations" }];
+  if (monthlyData.length < 3) {
+    return [{ type: "neutral", message: "Need more monthly data to calculate correlations" }];
   }
 
-  // Analyze high vs low activity weeks
-  const avgSteps = weeklyData.reduce((a, b) => a + b.avgSteps, 0) / weeklyData.length;
-  const highActivityWeeks = weeklyData.filter(w => w.avgSteps > avgSteps * 1.2);
-  const lowActivityWeeks = weeklyData.filter(w => w.avgSteps < avgSteps * 0.8);
+  // Analyze: Compare high vs low activity MONTHS (not weeks)
+  const avgSteps = monthlyData.reduce((a, b) => a + b.avgSteps, 0) / monthlyData.length;
+  const highActivityMonths = monthlyData.filter(m => m.avgSteps > avgSteps * 1.15);
+  const lowActivityMonths = monthlyData.filter(m => m.avgSteps < avgSteps * 0.85);
 
-  if (highActivityWeeks.length >= 2 && lowActivityWeeks.length >= 2) {
-    const highActivityWeightChange = highActivityWeeks.reduce((a, b) => a + b.weightChange, 0) / highActivityWeeks.length;
-    const lowActivityWeightChange = lowActivityWeeks.reduce((a, b) => a + b.weightChange, 0) / lowActivityWeeks.length;
+  if (highActivityMonths.length >= 2 && lowActivityMonths.length >= 2) {
+    // Count weight loss months in each group
+    const highActivityLossRate = highActivityMonths.filter(m => m.weightTrend === "down").length / highActivityMonths.length;
+    const lowActivityLossRate = lowActivityMonths.filter(m => m.weightTrend === "down").length / lowActivityMonths.length;
 
-    if (highActivityWeightChange < lowActivityWeightChange - 0.1) {
+    // Compare average weights
+    const highActivityAvgWeight = highActivityMonths.reduce((a, b) => a + b.avgWeight, 0) / highActivityMonths.length;
+    const lowActivityAvgWeight = lowActivityMonths.reduce((a, b) => a + b.avgWeight, 0) / lowActivityMonths.length;
+
+    if (highActivityLossRate > lowActivityLossRate + 0.15 || highActivityAvgWeight < lowActivityAvgWeight - 0.5) {
       insights.push({
         type: "positive",
-        message: `High activity weeks correlate with better weight loss`,
-        detail: `High activity: ${highActivityWeightChange > 0 ? "+" : ""}${highActivityWeightChange.toFixed(2)} kg/week vs Low activity: ${lowActivityWeightChange > 0 ? "+" : ""}${lowActivityWeightChange.toFixed(2)} kg/week`,
+        message: `Higher activity months correlate with better weight outcomes`,
+        detail: `Active months: ${(highActivityLossRate * 100).toFixed(0)}% showed weight loss vs ${(lowActivityLossRate * 100).toFixed(0)}% for low activity months`,
       });
-    } else if (lowActivityWeightChange < highActivityWeightChange - 0.1) {
+    } else if (lowActivityLossRate > highActivityLossRate + 0.15 && lowActivityAvgWeight < highActivityAvgWeight - 0.5) {
+      // Only show this if BOTH conditions are true - more stringent
       insights.push({
-        type: "negative",
-        message: `Surprisingly, lower activity weeks show better weight outcomes`,
-        detail: `This may indicate diet plays a larger role than exercise for you`,
+        type: "neutral",
+        message: `Short-term activity fluctuations show mixed weight correlations`,
+        detail: `This is normal - diet, water retention, and other factors affect weekly weight`,
       });
     } else {
       insights.push({
         type: "neutral",
-        message: `Activity levels show minimal correlation with weight changes`,
-        detail: `Both high and low activity weeks have similar weight outcomes`,
+        message: `Activity and weight show complex relationship`,
+        detail: `Long-term consistency matters more than individual week variations`,
       });
     }
   }
 
-  // Analyze workout frequency correlation
-  const weeksWithWorkouts = weeklyData.filter(w => w.workoutMinutes > 60);
-  const weeksWithoutWorkouts = weeklyData.filter(w => w.workoutMinutes <= 60);
+  // Long-term trend analysis - compare periods
+  if (allWeightData.length > 100 && allSteps.length > 100) {
+    // Find the user's lowest weight period and check activity then
+    const sortedByWeight = [...allWeightData].sort((a, b) => a.weightKg - b.weightKg);
+    const lowestPeriod = sortedByWeight.slice(0, Math.ceil(sortedByWeight.length * 0.1));
+    const highestPeriod = sortedByWeight.slice(-Math.ceil(sortedByWeight.length * 0.1));
 
-  if (weeksWithWorkouts.length >= 2 && weeksWithoutWorkouts.length >= 2) {
-    const withWorkoutsChange = weeksWithWorkouts.reduce((a, b) => a + b.weightChange, 0) / weeksWithWorkouts.length;
-    const withoutWorkoutsChange = weeksWithoutWorkouts.reduce((a, b) => a + b.weightChange, 0) / weeksWithoutWorkouts.length;
+    const lowestPeriodSteps = lowestPeriod
+      .map(w => stepsByDate.get(w.date))
+      .filter((s): s is number => s !== undefined);
+    const highestPeriodSteps = highestPeriod
+      .map(w => stepsByDate.get(w.date))
+      .filter((s): s is number => s !== undefined);
 
-    if (withWorkoutsChange < withoutWorkoutsChange - 0.1) {
-      insights.push({
-        type: "positive",
-        message: `Weeks with workout sessions show ${Math.abs(withWorkoutsChange - withoutWorkoutsChange).toFixed(2)} kg better results`,
-      });
+    if (lowestPeriodSteps.length > 5 && highestPeriodSteps.length > 5) {
+      const lowestPeriodAvgSteps = lowestPeriodSteps.reduce((a, b) => a + b, 0) / lowestPeriodSteps.length;
+      const highestPeriodAvgSteps = highestPeriodSteps.reduce((a, b) => a + b, 0) / highestPeriodSteps.length;
+
+      if (lowestPeriodAvgSteps > highestPeriodAvgSteps * 1.2) {
+        insights.push({
+          type: "positive",
+          message: `Your best weight periods had ${Math.round((lowestPeriodAvgSteps / highestPeriodAvgSteps - 1) * 100)}% more daily steps`,
+          detail: `${Math.round(lowestPeriodAvgSteps).toLocaleString()} steps/day at lowest weights vs ${Math.round(highestPeriodAvgSteps).toLocaleString()} at highest`,
+        });
+      }
     }
   }
 
-  // Step count threshold analysis
-  const stepThreshold = 8000;
-  const highStepDays = allSteps.filter(s => s.stepCount >= stepThreshold && s.date >= sinceDate);
-  const lowStepDays = allSteps.filter(s => s.stepCount < stepThreshold && s.date >= sinceDate);
-
-  if (highStepDays.length > 10 && lowStepDays.length > 10) {
-    insights.push({
-      type: "neutral",
-      message: `${highStepDays.length} days with 8,000+ steps vs ${lowStepDays.length} days below`,
-      detail: `Average: ${Math.round(allSteps.filter(s => s.date >= sinceDate).reduce((a, b) => a + b.stepCount, 0) / allSteps.filter(s => s.date >= sinceDate).length).toLocaleString()} steps/day`,
-    });
-  }
-
-  // Walking distance insight
+  // Walking distance insight (last 90 days for recency)
   const walkingWorkouts = allWorkouts.filter(w => w.activityType === "walking" && w.date >= sinceDate);
   if (walkingWorkouts.length > 0) {
     const totalKm = walkingWorkouts.reduce((a, b) => a + (b.distanceKm || 0), 0);
     const totalMinutes = walkingWorkouts.reduce((a, b) => a + b.durationMinutes, 0);
     insights.push({
       type: "positive",
-      message: `${walkingWorkouts.length} walking sessions totaling ${Math.round(totalKm)} km`,
+      message: `${walkingWorkouts.length} walking sessions totaling ${Math.round(totalKm)} km in last 90 days`,
       detail: `${Math.round(totalMinutes / 60)} hours of walking exercise`,
     });
   }
