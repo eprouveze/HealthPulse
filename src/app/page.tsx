@@ -9,7 +9,6 @@ import { HeroSection } from "@/components/dashboard/hero-section";
 import { TabContainer } from "@/components/dashboard/tab-container";
 import { SettingsModal } from "@/components/dashboard/settings-modal";
 import { DailyCheckinModal } from "@/components/dashboard/daily-checkin-modal";
-import { FloatingActionButton } from "@/components/dashboard/floating-action-button";
 import { CelebrationModal, checkForCelebrations } from "@/components/gamification/celebration-modal";
 import { BadgeShowcase } from "@/components/gamification/badge-showcase";
 import { StreakCalendar } from "@/components/gamification/streak-calendar";
@@ -25,6 +24,8 @@ import {
   Circle,
   Flame,
   X,
+  Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -129,12 +130,15 @@ export default function Home() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [prevGameState, setPrevGameState] = useState<GameState | null>(null);
   const [todayEntry, setTodayEntry] = useState<Entry | null>(null);
+  const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showCheckin, setShowCheckin] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [celebration, setCelebration] = useState<CelebrationData | null>(null);
   const [dismissedMilestones, setDismissedMilestones] = useState<Set<string>>(new Set());
+  const [weeklyInsight, setWeeklyInsight] = useState<string | null>(null);
+  const [generatingInsight, setGeneratingInsight] = useState(false);
 
   const today = format(new Date(), "yyyy-MM-dd");
 
@@ -170,7 +174,8 @@ export default function Home() {
       setActivityStats(activityStatsData);
       // Load API key from database
       if (apiKeyData.value) setApiKey(apiKeyData.value);
-      // Find today's entry
+      // Store all entries and find today's entry
+      setAllEntries(entriesData);
       const todayEntryData = entriesData.find((e: Entry) => e.date === today);
       setTodayEntry(todayEntryData || null);
       setLoading(false);
@@ -227,30 +232,38 @@ export default function Home() {
     setTodayEntry(todayEntryData || null);
   };
 
-  const logWeight = async (weight: number, date: string, notes?: string) => {
-    await fetch("/api/weights", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ weightKg: weight, date, source: "manual", notes }),
-    });
-    setPrevGameState(gameState);
-    const [weightsData, statsData, analysisData, gameData] = await Promise.all([
-      fetch("/api/weights").then((r) => r.json()),
-      fetch("/api/stats").then((r) => r.json()),
-      fetch("/api/analysis").then((r) => r.json()),
-      fetch("/api/game").then((r) => r.json()),
-    ]);
-    setWeights(weightsData);
-    setStats(statsData);
-    setAnalysis(analysisData);
-    setGameState(gameData);
-  };
-
   const dismissMilestone = (message: string) => {
     const newDismissed = new Set(dismissedMilestones);
     newDismissed.add(message);
     setDismissedMilestones(newDismissed);
     localStorage.setItem("wt-dismissed-milestones", JSON.stringify([...newDismissed]));
+  };
+
+  const generateWeeklyInsight = async () => {
+    if (!apiKey) {
+      setShowSettings(true);
+      return;
+    }
+    setGeneratingInsight(true);
+    try {
+      const response = await fetch("/api/coach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          apiKey,
+          question: "Give me a brief weekly summary of my progress. What went well? What could I improve? Keep it to 2-3 short paragraphs.",
+        }),
+      });
+      const data = await response.json();
+      if (data.error) {
+        setWeeklyInsight(`Error: ${data.error}`);
+      } else {
+        setWeeklyInsight(data.message);
+      }
+    } catch {
+      setWeeklyInsight("Failed to generate insight. Please try again.");
+    }
+    setGeneratingInsight(false);
   };
 
   if (loading) {
@@ -340,11 +353,55 @@ export default function Home() {
   // Insights content for tab
   const insightsContent = (
     <div className="space-y-4">
+      {/* AI Weekly Insight */}
+      <Card className="border-l-4 border-level-purple">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-level-purple" />
+              Weekly AI Insight
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={generateWeeklyInsight}
+              disabled={generatingInsight}
+            >
+              {generatingInsight ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  Generate
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {weeklyInsight ? (
+            <div className="prose prose-sm max-w-none">
+              {weeklyInsight.split("\n").map((p, i) => (
+                <p key={i} className="mb-2 last:mb-0 text-sm">{p}</p>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Click &quot;Generate&quot; to get a personalized weekly summary powered by AI.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Static Insights */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Lightbulb className="h-5 w-5" />
-            Insights
+            Data Insights
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -473,7 +530,6 @@ export default function Home() {
         stats={stats}
         gameState={gameState}
         hasCheckedInToday={!!todayEntry}
-        onLogWeight={() => {}}
         onCheckIn={() => setShowCheckin(true)}
       />
 
@@ -537,6 +593,7 @@ export default function Home() {
               weights={weights}
               steps={steps}
               workouts={workouts}
+              entries={allEntries}
               goalWeight={stats?.goal ?? undefined}
             />
           ) : (
@@ -585,12 +642,6 @@ export default function Home() {
       <CelebrationModal
         celebration={celebration}
         onClose={() => setCelebration(null)}
-      />
-
-      {/* Floating Action Button */}
-      <FloatingActionButton
-        currentWeight={stats?.current}
-        onSubmit={logWeight}
       />
     </main>
   );

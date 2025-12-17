@@ -209,9 +209,20 @@ async function calculateBadges(): Promise<Badge[]> {
 }
 
 /**
+ * Get next streak milestone
+ */
+function getNextStreakMilestone(currentStreak: number): number {
+  const milestones = [3, 7, 14, 21, 30, 50, 100];
+  for (const m of milestones) {
+    if (currentStreak < m) return m;
+  }
+  return Math.ceil((currentStreak + 1) / 50) * 50; // After 100, every 50
+}
+
+/**
  * Calculate daily quests and their completion status
  */
-async function calculateQuests(): Promise<Quest[]> {
+async function calculateQuests(currentStreak: number): Promise<Quest[]> {
   const today = new Date().toISOString().split("T")[0];
 
   // Check today's weight entry
@@ -240,7 +251,8 @@ async function calculateQuests(): Promise<Quest[]> {
 
   const weekCount = weekEntries[0]?.count || 0;
 
-  return [
+  // Dynamic quests based on current streak
+  const quests: Quest[] = [
     {
       id: "daily-weigh",
       name: "Daily Weigh-in",
@@ -258,21 +270,38 @@ async function calculateQuests(): Promise<Quest[]> {
     {
       id: "weekly-consistency",
       name: "Weekly Consistency",
-      description: "Log 5+ days this week",
+      description: `Log ${Math.max(5 - weekCount, 0)} more days this week`,
       xpReward: 50,
       completed: weekCount >= 5,
       progress: Math.min(weekCount, 5),
       target: 5,
     },
   ];
+
+  // Add streak quest if user has a streak going
+  if (currentStreak > 0) {
+    const nextMilestone = getNextStreakMilestone(currentStreak);
+    const daysToMilestone = nextMilestone - currentStreak;
+    quests.push({
+      id: "streak-milestone",
+      name: `Reach ${nextMilestone}-Day Streak`,
+      description: `${daysToMilestone} more day${daysToMilestone !== 1 ? "s" : ""} to go!`,
+      xpReward: nextMilestone >= 30 ? 100 : nextMilestone >= 7 ? 50 : 25,
+      completed: currentStreak >= nextMilestone,
+      progress: currentStreak,
+      target: nextMilestone,
+    });
+  }
+
+  return quests;
 }
 
 /**
  * Calculate total XP and level
  */
-async function calculateXpAndLevel(): Promise<{ xp: number; level: number }> {
+async function calculateXpAndLevel(currentStreak: number): Promise<{ xp: number; level: number }> {
   const badges = await calculateBadges();
-  const quests = await calculateQuests();
+  const quests = await calculateQuests(currentStreak);
 
   // XP from badges (50 XP per badge)
   const badgeXp = badges.length * 50;
@@ -294,11 +323,13 @@ async function calculateXpAndLevel(): Promise<{ xp: number; level: number }> {
  * Get complete game state
  */
 export async function getGameState(): Promise<GameState> {
-  const [{ streak, lastDate }, badges, quests, { xp, level }] = await Promise.all([
-    calculateStreak(),
+  // First get streak since other calculations depend on it
+  const { streak, lastDate } = await calculateStreak();
+
+  const [badges, quests, { xp, level }] = await Promise.all([
     calculateBadges(),
-    calculateQuests(),
-    calculateXpAndLevel(),
+    calculateQuests(streak),
+    calculateXpAndLevel(streak),
   ]);
 
   // Generate recent achievements (simplified - just show newest badges)

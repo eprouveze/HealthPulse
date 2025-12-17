@@ -19,6 +19,7 @@ import { Download, Image, FileSpreadsheet } from "lucide-react";
 interface WeightData {
   date: string;
   weightKg: number;
+  notes?: string | null;
 }
 
 interface StepData {
@@ -33,10 +34,17 @@ interface WorkoutData {
   distanceKm: number | null;
 }
 
+interface EntryData {
+  date: string;
+  notes: string | null;
+  energyLevel: number | null;
+}
+
 interface WeightActivityChartProps {
   weights: WeightData[];
   steps: StepData[];
   workouts: WorkoutData[];
+  entries?: EntryData[];
   goalWeight?: number;
 }
 
@@ -117,7 +125,20 @@ interface AggregatedData {
   walkingKm: number;
   walkingKmCount: number;
   walkingScaled: number;
+  workoutCount: number;
+  notes: string | null;
+  prevWeight: number | null;
+  energyLevel: number | null;
 }
+
+// Quick preset definitions
+const QUICK_PRESETS: { label: string; timeSpan: TimeSpan; precision: Precision }[] = [
+  { label: "This Week", timeSpan: "30d", precision: "day" },
+  { label: "This Month", timeSpan: "30d", precision: "day" },
+  { label: "This Quarter", timeSpan: "90d", precision: "week" },
+  { label: "This Year", timeSpan: "1y", precision: "week" },
+  { label: "All Time", timeSpan: "all", precision: "month" },
+];
 
 const CHART_PREFS_KEY = "weight-chart-preferences";
 
@@ -143,7 +164,7 @@ function loadPreferences(): ChartPreferences {
   return { timeSpan: "90d", precision: "day", showSteps: true, showWorkouts: true };
 }
 
-export function WeightActivityChart({ weights, steps, workouts, goalWeight }: WeightActivityChartProps) {
+export function WeightActivityChart({ weights, steps, workouts, entries = [], goalWeight }: WeightActivityChartProps) {
   const [timeSpan, setTimeSpan] = useState<TimeSpan>("90d");
   const [precision, setPrecision] = useState<Precision>("day");
   const [showSteps, setShowSteps] = useState(true);
@@ -252,11 +273,17 @@ export function WeightActivityChart({ weights, steps, workouts, goalWeight }: We
   // Create date-indexed maps
   const stepsByDate = new Map(filteredSteps.map((s) => [s.date, s.stepCount]));
   const walkingKmByDate = new Map<string, number>();
+  const workoutCountByDate = new Map<string, number>();
   for (const w of filteredWorkouts) {
+    workoutCountByDate.set(w.date, (workoutCountByDate.get(w.date) || 0) + 1);
     if (w.activityType === "walking" && w.distanceKm) {
       walkingKmByDate.set(w.date, (walkingKmByDate.get(w.date) || 0) + w.distanceKm);
     }
   }
+
+  // Create notes and energy maps from entries
+  const notesByDate = new Map(entries.map((e) => [e.date, e.notes]));
+  const energyByDate = new Map(entries.map((e) => [e.date, e.energyLevel]));
 
   // Scale walking km by 2500 to be prominent alongside steps
   const WALKING_SCALE = 2500;
@@ -270,6 +297,10 @@ export function WeightActivityChart({ weights, steps, workouts, goalWeight }: We
     const daySteps = stepsByDate.get(w.date) || 0;
     const dayWalkingKm = walkingKmByDate.get(w.date) || 0;
 
+    const dayWorkoutCount = workoutCountByDate.get(w.date) || 0;
+    const dayNotes = notesByDate.get(w.date) || null;
+    const dayEnergy = energyByDate.get(w.date) || null;
+
     if (existing) {
       existing.weight = (existing.weight * existing.weightCount + w.weightKg) / (existing.weightCount + 1);
       existing.weightCount++;
@@ -277,6 +308,10 @@ export function WeightActivityChart({ weights, steps, workouts, goalWeight }: We
       existing.stepsCount += daySteps > 0 ? 1 : 0;
       existing.walkingKm += dayWalkingKm;
       existing.walkingKmCount += dayWalkingKm > 0 ? 1 : 0;
+      existing.workoutCount += dayWorkoutCount;
+      // Keep first non-null note for the period
+      if (!existing.notes && dayNotes) existing.notes = dayNotes;
+      if (!existing.energyLevel && dayEnergy) existing.energyLevel = dayEnergy;
     } else {
       aggregatedMap.set(periodKey, {
         periodKey,
@@ -288,25 +323,33 @@ export function WeightActivityChart({ weights, steps, workouts, goalWeight }: We
         walkingKm: dayWalkingKm,
         walkingKmCount: dayWalkingKm > 0 ? 1 : 0,
         walkingScaled: 0, // Will be calculated after averaging
+        workoutCount: dayWorkoutCount,
+        notes: dayNotes,
+        prevWeight: null, // Will be set after sorting
+        energyLevel: dayEnergy,
       });
     }
   }
 
   // For week/month/year precision, calculate averages per day
-  const chartData = Array.from(aggregatedMap.values())
-    .sort((a, b) => a.periodKey.localeCompare(b.periodKey))
-    .map((d) => {
-      // For aggregated views, show average daily values
-      const avgSteps = precision === "day" ? d.steps : (d.stepsCount > 0 ? Math.round(d.steps / d.stepsCount) : 0);
-      const avgWalkingKm = precision === "day" ? d.walkingKm : (d.walkingKmCount > 0 ? d.walkingKm / d.walkingKmCount : 0);
-      return {
-        ...d,
-        steps: avgSteps,
-        walkingKm: precision === "day" ? d.walkingKm : avgWalkingKm,
-        walkingKmTotal: d.walkingKm, // Keep total for tooltip
-        walkingScaled: avgWalkingKm * WALKING_SCALE,
-      };
-    });
+  const sortedData = Array.from(aggregatedMap.values())
+    .sort((a, b) => a.periodKey.localeCompare(b.periodKey));
+
+  // Add previous weight for change calculation
+  const chartData = sortedData.map((d, i) => {
+    // For aggregated views, show average daily values
+    const avgSteps = precision === "day" ? d.steps : (d.stepsCount > 0 ? Math.round(d.steps / d.stepsCount) : 0);
+    const avgWalkingKm = precision === "day" ? d.walkingKm : (d.walkingKmCount > 0 ? d.walkingKm / d.walkingKmCount : 0);
+    const prevWeight = i > 0 ? sortedData[i - 1].weight : null;
+    return {
+      ...d,
+      steps: avgSteps,
+      walkingKm: precision === "day" ? d.walkingKm : avgWalkingKm,
+      walkingKmTotal: d.walkingKm, // Keep total for tooltip
+      walkingScaled: avgWalkingKm * WALKING_SCALE,
+      prevWeight,
+    };
+  });
 
   const minWeight = Math.min(...chartData.map((d) => d.weight));
   const maxWeight = Math.max(...chartData.map((d) => d.weight));
@@ -458,34 +501,61 @@ export function WeightActivityChart({ weights, steps, workouts, goalWeight }: We
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 const data = payload[0].payload;
+                const weightChange = data.prevWeight ? data.weight - data.prevWeight : null;
                 return (
-                  <div className="rounded-lg border bg-background p-3 shadow-sm">
-                    <p className="text-sm font-medium mb-2">
+                  <div className="rounded-lg border bg-background p-3 shadow-md min-w-[200px]">
+                    <p className="text-sm font-medium mb-2 pb-2 border-b">
                       {precision === "day"
-                        ? format(parseISO(data.periodKey), "MMM d, yyyy")
+                        ? format(parseISO(data.periodKey), "EEEE, MMM d, yyyy")
                         : precision === "week"
                         ? `Week of ${format(parseISO(data.periodKey), "MMM d, yyyy")}`
                         : precision === "month"
                         ? format(parseISO(data.periodKey + "-01"), "MMMM yyyy")
                         : data.periodKey}
                     </p>
-                    <p className="text-lg font-bold">
-                      {precision === "day" ? data.weight.toFixed(1) : data.weight.toFixed(1)} kg
-                      {precision !== "day" && <span className="text-xs font-normal text-muted-foreground"> avg</span>}
-                    </p>
-                    {showSteps && data.steps > 0 && (
-                      <p className="text-sm text-blue-500">
-                        {data.steps.toLocaleString()} {precision === "day" ? "steps" : "avg steps/day"}
+                    <div className="space-y-1">
+                      <p className="text-lg font-bold">
+                        {data.weight.toFixed(1)} kg
+                        {precision !== "day" && <span className="text-xs font-normal text-muted-foreground"> avg</span>}
+                      </p>
+                      {weightChange !== null && (
+                        <p className={`text-sm ${weightChange < 0 ? "text-green-600" : weightChange > 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                          {weightChange >= 0 ? "+" : ""}{weightChange.toFixed(2)} kg from previous
+                        </p>
+                      )}
+                    </div>
+                    {(showSteps || showWorkouts || data.workoutCount > 0) && (
+                      <div className="mt-2 pt-2 border-t space-y-1">
+                        {showSteps && data.steps > 0 && (
+                          <p className="text-sm text-blue-500">
+                            {data.steps.toLocaleString()} {precision === "day" ? "steps" : "avg steps/day"}
+                          </p>
+                        )}
+                        {data.workoutCount > 0 && (
+                          <p className="text-sm text-purple-500">
+                            {data.workoutCount} workout{data.workoutCount !== 1 ? "s" : ""}
+                          </p>
+                        )}
+                        {showWorkouts && data.walkingKm > 0 && (
+                          <p className="text-sm text-orange-500">
+                            {data.walkingKm.toFixed(1)} km walked
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {data.energyLevel && (
+                      <p className="text-sm mt-2 pt-2 border-t">
+                        Energy: {["😫", "😕", "😐", "🙂", "😄"][data.energyLevel - 1] || "?"} {["Very Low", "Low", "Neutral", "Good", "Excellent"][data.energyLevel - 1]}
                       </p>
                     )}
-                    {showWorkouts && data.walkingKm > 0 && (
-                      <p className="text-sm text-orange-500">
-                        {data.walkingKm.toFixed(1)} km {precision === "day" ? "walked" : "total"}
+                    {data.notes && (
+                      <p className="text-xs text-muted-foreground mt-2 pt-2 border-t italic">
+                        📝 {data.notes.length > 50 ? data.notes.substring(0, 50) + "..." : data.notes}
                       </p>
                     )}
                     {precision !== "day" && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {data.weightCount} weigh-in{data.weightCount !== 1 ? "s" : ""}
+                      <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                        {data.weightCount} weigh-in{data.weightCount !== 1 ? "s" : ""} this {precision}
                       </p>
                     )}
                   </div>

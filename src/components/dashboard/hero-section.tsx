@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Scale, CheckCircle2, TrendingDown, TrendingUp, Minus, Flame, Star, Gem } from "lucide-react";
+import { CheckCircle2, TrendingDown, TrendingUp, Minus, Flame, Star, Gem } from "lucide-react";
 import { format } from "date-fns";
 
 interface Stats {
@@ -30,11 +30,10 @@ interface HeroSectionProps {
   stats: Stats | null;
   gameState: GameState | null;
   hasCheckedInToday: boolean;
-  onLogWeight: () => void;
   onCheckIn: () => void;
 }
 
-export function HeroSection({ stats, gameState, hasCheckedInToday, onLogWeight, onCheckIn }: HeroSectionProps) {
+export function HeroSection({ stats, gameState, hasCheckedInToday, onCheckIn }: HeroSectionProps) {
   const progressToGoal = stats?.goal && stats?.toGoal !== null
     ? Math.max(0, Math.min(100, ((stats.totalLost) / (stats.starting - stats.goal)) * 100))
     : 0;
@@ -120,21 +119,17 @@ export function HeroSection({ stats, gameState, hasCheckedInToday, onLogWeight, 
         </div>
 
         {/* Quick Actions */}
-        <div className="flex gap-3">
-          <Button onClick={onLogWeight} className="flex-1" size="lg">
-            <Scale className="h-4 w-4 mr-2" />
-            Log Weight
-          </Button>
+        <div className="flex justify-center">
           <Button
             onClick={onCheckIn}
             variant={hasCheckedInToday ? "outline" : "default"}
-            className="flex-1"
             size="lg"
+            className="min-w-[200px]"
           >
             {hasCheckedInToday ? (
               <>
                 <CheckCircle2 className="h-4 w-4 mr-2 text-success" />
-                Checked In
+                Checked In Today
               </>
             ) : (
               <>
