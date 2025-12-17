@@ -117,10 +117,10 @@ export function DailyCheckinModal({ isOpen, onClose, todayEntry, onSave }: Daily
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-2xl shadow-2xl z-50"
+            className="fixed left-1/2 top-[5vh] -translate-x-1/2 w-full max-w-lg max-h-[90vh] bg-white rounded-2xl shadow-2xl z-50 flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b">
+            <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
               <div>
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <Moon className="h-5 w-5" />
@@ -136,7 +136,7 @@ export function DailyCheckinModal({ isOpen, onClose, todayEntry, onSave }: Daily
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 overflow-y-auto flex-1">
               {/* Energy Level */}
               <div>
                 <label className="text-sm font-medium mb-3 block">
@@ -221,7 +221,7 @@ export function DailyCheckinModal({ isOpen, onClose, todayEntry, onSave }: Daily
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t">
+            <div className="p-6 border-t flex-shrink-0">
               <Button onClick={handleSave} disabled={saving} className="w-full" size="lg">
                 {saving ? (
                   "Saving..."

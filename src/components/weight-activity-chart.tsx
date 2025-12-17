@@ -10,7 +10,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ReferenceLine,
   Legend,
 } from "recharts";
 import { format, parseISO, subDays, subYears, startOfWeek, startOfMonth, startOfYear } from "date-fns";
@@ -477,10 +476,7 @@ export function WeightActivityChart({ weights, steps, workouts, entries = [], go
           />
           <YAxis
             yAxisId="weight"
-            domain={[
-              goalWeight ? Math.min(minWeight - padding, goalWeight - 2) : minWeight - padding,
-              maxWeight + padding,
-            ]}
+            domain={[minWeight - padding, maxWeight + padding]}
             tick={{ fontSize: 11 }}
             className="text-muted-foreground"
             tickFormatter={(value) => `${value.toFixed(0)}`}
@@ -565,15 +561,6 @@ export function WeightActivityChart({ weights, steps, workouts, entries = [], go
             }}
           />
           <Legend />
-          {goalWeight && (
-            <ReferenceLine
-              yAxisId="weight"
-              y={goalWeight}
-              stroke="hsl(var(--primary))"
-              strokeDasharray="5 5"
-              label={{ value: `Goal: ${goalWeight}kg`, position: "right", fontSize: 11 }}
-            />
-          )}
           {showSteps && (
             <Bar
               yAxisId="activity"
