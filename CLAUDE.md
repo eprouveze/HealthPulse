@@ -96,5 +96,13 @@ Located in `src/app/api/activity-stats/route.ts`:
 - Tracks weight trend direction within each month (up/down/flat)
 - Long-term analysis compares step counts during lowest vs highest weight periods
 
+## Git Workflow
+When asked to "document, commit and push" - follow that exact order:
+1. **Document** - Update CLAUDE.md or relevant docs with changes made
+2. **Commit** - Stage and commit code + documentation together
+3. **Push** - Push once with everything included
+
+Never push before documenting. Keep changes atomic in a single commit when possible.
+
 ## Platform
 **Mac desktop only** - Not a mobile app. Optimize for keyboard shortcuts, data density, and wide screen layouts.
