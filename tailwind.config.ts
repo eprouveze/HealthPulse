@@ -39,6 +39,20 @@ const config: Config = {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        // Semantic colors
+        "weight-loss": "hsl(var(--weight-loss))",
+        "weight-gain": "hsl(var(--weight-gain))",
+        "weight-stable": "hsl(var(--weight-stable))",
+        // Gamification colors
+        "xp-gold": "hsl(var(--xp-gold))",
+        "streak-fire": "hsl(var(--streak-fire))",
+        "level-purple": "hsl(var(--level-purple))",
+        "badge-bronze": "hsl(var(--badge-bronze))",
+        "badge-silver": "hsl(var(--badge-silver))",
+        "badge-gold": "hsl(var(--badge-gold))",
+        // Status colors
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
       },
       borderRadius: {
         lg: "var(--radius)",

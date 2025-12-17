@@ -7,7 +7,7 @@
   --foreground: 224 71.4% 4.1%;
   --card: 0 0% 100%;
   --card-foreground: 224 71.4% 4.1%;
-  --primary: 220.9 39.3% 11%;
+  --primary: 210 100% 45%;
   --primary-foreground: 210 20% 98%;
   --secondary: 220 14.3% 95.9%;
   --secondary-foreground: 220.9 39.3% 11%;
@@ -19,8 +19,25 @@
   --destructive-foreground: 210 20% 98%;
   --border: 220 13% 91%;
   --input: 220 13% 91%;
-  --ring: 224 71.4% 4.1%;
+  --ring: 210 100% 45%;
   --radius: 0.5rem;
+
+  /* Semantic Colors - Weight */
+  --weight-loss: 142 76% 36%;
+  --weight-gain: 0 72% 51%;
+  --weight-stable: 210 11% 71%;
+
+  /* Gamification Colors */
+  --xp-gold: 45 93% 47%;
+  --streak-fire: 25 95% 53%;
+  --level-purple: 250 75% 60%;
+  --badge-bronze: 30 70% 50%;
+  --badge-silver: 210 10% 70%;
+  --badge-gold: 45 90% 55%;
+
+  /* Success/Warning */
+  --success: 142 76% 36%;
+  --warning: 38 92% 50%;
 }
 
 .dark {

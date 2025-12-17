@@ -172,11 +172,7 @@ export default function Home() {
   const today = format(new Date(), "yyyy-MM-dd");
 
   useEffect(() => {
-    // Load API key from localStorage
-    const savedKey = localStorage.getItem("anthropic_api_key");
-    if (savedKey) setApiKey(savedKey);
-
-    // Fetch all data including activity
+    // Fetch all data including activity and settings
     Promise.all([
       fetch("/api/weights").then((r) => r.json()),
       fetch("/api/stats").then((r) => r.json()),
@@ -186,7 +182,8 @@ export default function Home() {
       fetch("/api/steps").then((r) => r.json()),
       fetch("/api/workouts").then((r) => r.json()),
       fetch("/api/activity-stats").then((r) => r.json()),
-    ]).then(([weightsData, statsData, analysisData, gameData, entriesData, stepsData, workoutsData, activityStatsData]) => {
+      fetch("/api/settings?key=anthropic_api_key").then((r) => r.json()),
+    ]).then(([weightsData, statsData, analysisData, gameData, entriesData, stepsData, workoutsData, activityStatsData, apiKeyData]) => {
       setWeights(weightsData);
       setStats(statsData);
       setAnalysis(analysisData);
@@ -194,6 +191,8 @@ export default function Home() {
       setSteps(stepsData);
       setWorkouts(workoutsData);
       setActivityStats(activityStatsData);
+      // Load API key from database
+      if (apiKeyData.value) setApiKey(apiKeyData.value);
       // Find today's entry
       const todayEntryData = entriesData.find((e: Entry) => e.date === today);
       setTodayEntry(todayEntryData || null);
@@ -206,8 +205,12 @@ export default function Home() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  const saveApiKey = () => {
-    localStorage.setItem("anthropic_api_key", apiKey);
+  const saveApiKey = async () => {
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "anthropic_api_key", value: apiKey }),
+    });
     setShowSettings(false);
   };
 
