@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ComposedChart,
   Line,
@@ -14,6 +14,7 @@ import {
   Legend,
 } from "recharts";
 import { format, parseISO, subDays, subYears, startOfWeek, startOfMonth, startOfYear } from "date-fns";
+import { Download, Image, FileSpreadsheet } from "lucide-react";
 
 interface WeightData {
   date: string;
@@ -148,6 +149,72 @@ export function WeightActivityChart({ weights, steps, workouts, goalWeight }: We
   const [showSteps, setShowSteps] = useState(true);
   const [showWorkouts, setShowWorkouts] = useState(true);
   const [loaded, setLoaded] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+
+  // Export to CSV
+  const exportToCSV = useCallback((data: AggregatedData[]) => {
+    const headers = ["Date", "Weight (kg)", "Steps", "Walking (km)"];
+    const rows = data.map(d => [
+      d.periodKey,
+      d.weight.toFixed(1),
+      d.steps.toString(),
+      d.walkingKm.toFixed(2)
+    ]);
+
+    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `weight-data-${timeSpan}-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+  }, [timeSpan]);
+
+  // Export to PNG (using html2canvas approach via SVG)
+  const exportToPNG = useCallback(async () => {
+    if (!chartContainerRef.current) return;
+
+    try {
+      // Get the SVG element from recharts
+      const svgElement = chartContainerRef.current.querySelector("svg");
+      if (!svgElement) return;
+
+      // Clone SVG and add styling
+      const clonedSvg = svgElement.cloneNode(true) as SVGElement;
+      clonedSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+
+      // Create a canvas
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const svgData = new XMLSerializer().serializeToString(clonedSvg);
+      const img = new window.Image();
+
+      img.onload = () => {
+        canvas.width = img.width * 2;
+        canvas.height = img.height * 2;
+        ctx.scale(2, 2);
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+
+        const pngUrl = canvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.href = pngUrl;
+        link.download = `weight-chart-${timeSpan}-${format(new Date(), "yyyy-MM-dd")}.png`;
+        link.click();
+      };
+
+      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+    } catch (error) {
+      console.error("Failed to export PNG:", error);
+    }
+    setShowExportMenu(false);
+  }, [timeSpan]);
 
   // Load preferences on mount
   useEffect(() => {
@@ -304,7 +371,7 @@ export function WeightActivityChart({ weights, steps, workouts, goalWeight }: We
             ))}
           </div>
         </div>
-        <div className="flex gap-3 text-sm">
+        <div className="flex gap-3 text-sm items-center">
           <label className="flex items-center gap-1 cursor-pointer">
             <input
               type="checkbox"
@@ -323,12 +390,41 @@ export function WeightActivityChart({ weights, steps, workouts, goalWeight }: We
             />
             <span className="text-orange-500">Walking</span>
           </label>
+          {/* Export Menu */}
+          <div className="relative ml-2">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="p-1.5 rounded hover:bg-muted transition-colors"
+              title="Export chart"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+            {showExportMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-white border rounded-lg shadow-lg py-1 z-10 min-w-[140px]">
+                <button
+                  onClick={() => exportToCSV(chartData)}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Export CSV
+                </button>
+                <button
+                  onClick={exportToPNG}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                >
+                  <Image className="h-4 w-4" />
+                  Export PNG
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Chart */}
-      <ResponsiveContainer width="100%" height={350}>
-        <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+      <div ref={chartContainerRef}>
+        <ResponsiveContainer width="100%" height={350}>
+          <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="label"
@@ -436,8 +532,9 @@ export function WeightActivityChart({ weights, steps, workouts, goalWeight }: We
             activeDot={{ r: 6 }}
             name={precision === "day" ? "Weight (kg)" : "Avg Weight (kg)"}
           />
-        </ComposedChart>
-      </ResponsiveContainer>
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
 
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-4 text-center text-sm">

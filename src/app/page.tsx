@@ -1,30 +1,30 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { WeightActivityChart } from "@/components/weight-activity-chart";
-import { GamificationPanel } from "@/components/gamification-panel";
-import { LifestyleTracker } from "@/components/lifestyle-tracker";
 import { ActivityPanel } from "@/components/activity-panel";
+import { HeroSection } from "@/components/dashboard/hero-section";
+import { TabContainer } from "@/components/dashboard/tab-container";
+import { SettingsModal } from "@/components/dashboard/settings-modal";
+import { DailyCheckinModal } from "@/components/dashboard/daily-checkin-modal";
+import { FloatingActionButton } from "@/components/dashboard/floating-action-button";
+import { CelebrationModal, checkForCelebrations } from "@/components/gamification/celebration-modal";
+import { BadgeShowcase } from "@/components/gamification/badge-showcase";
+import { StreakCalendar } from "@/components/gamification/streak-calendar";
+import { AICoachPanel } from "@/components/ai-coach/ai-coach-panel";
+import { Progress } from "@/components/ui/progress";
 import {
-  TrendingDown,
-  TrendingUp,
-  Minus,
-  Scale,
-  Target,
-  Calendar,
   Trophy,
-  Sparkles,
-  Bot,
   Settings,
-  RefreshCw,
-  Award,
-  Flame,
   Lightbulb,
-  Send,
-  Footprints,
+  Star,
+  Target,
+  CheckCircle2,
+  Circle,
+  Flame,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -111,43 +111,12 @@ interface ActivityStats {
   recentSteps: { date: string; steps: number }[];
 }
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
-function StatCard({
-  title,
-  value,
-  subtitle,
-  icon: Icon,
-  trend,
-  highlight,
-}: {
+interface CelebrationData {
+  type: "levelUp" | "badgeEarned" | "streakMilestone" | "goalReached";
   title: string;
-  value: string;
-  subtitle?: string;
-  icon: React.ElementType;
-  trend?: "up" | "down" | "same";
-  highlight?: boolean;
-}) {
-  return (
-    <Card className={highlight ? "border-green-500 bg-green-50/50" : ""}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className={`h-4 w-4 ${highlight ? "text-green-600" : "text-muted-foreground"}`} />
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-2">
-          <div className="text-2xl font-bold">{value}</div>
-          {trend === "down" && <TrendingDown className="h-4 w-4 text-green-500" />}
-          {trend === "up" && <TrendingUp className="h-4 w-4 text-red-500" />}
-          {trend === "same" && <Minus className="h-4 w-4 text-muted-foreground" />}
-        </div>
-        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
-      </CardContent>
-    </Card>
-  );
+  message: string;
+  icon?: string;
+  value?: number | string;
 }
 
 export default function Home() {
@@ -158,20 +127,28 @@ export default function Home() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [prevGameState, setPrevGameState] = useState<GameState | null>(null);
   const [todayEntry, setTodayEntry] = useState<Entry | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [showCheckin, setShowCheckin] = useState(false);
   const [apiKey, setApiKey] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [coachLoading, setCoachLoading] = useState(false);
-  const [goalWeight, setGoalWeight] = useState("");
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const settingsRef = useRef<HTMLDivElement>(null);
+  const [celebration, setCelebration] = useState<CelebrationData | null>(null);
+  const [dismissedMilestones, setDismissedMilestones] = useState<Set<string>>(new Set());
 
   const today = format(new Date(), "yyyy-MM-dd");
 
   useEffect(() => {
+    // Load dismissed milestones
+    const savedDismissed = localStorage.getItem("wt-dismissed-milestones");
+    if (savedDismissed) {
+      try {
+        setDismissedMilestones(new Set(JSON.parse(savedDismissed)));
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
     // Fetch all data including activity and settings
     Promise.all([
       fetch("/api/weights").then((r) => r.json()),
@@ -200,105 +177,38 @@ export default function Home() {
     });
   }, [today]);
 
-  // Scroll chat to bottom when new messages arrive
+  // Check for celebrations when game state changes
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
+    if (gameState && prevGameState) {
+      const newCelebration = checkForCelebrations(prevGameState, gameState);
+      if (newCelebration) {
+        setCelebration(newCelebration);
+      }
+    }
+  }, [gameState, prevGameState]);
 
-  const saveApiKey = async () => {
+  const saveApiKey = async (key: string) => {
     await fetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "anthropic_api_key", value: apiKey }),
+      body: JSON.stringify({ key: "anthropic_api_key", value: key }),
     });
+    setApiKey(key);
     setShowSettings(false);
   };
 
-  const askCoach = async (question?: string) => {
-    if (!apiKey) {
-      setShowSettings(true);
-      // Scroll to settings after state update
-      setTimeout(() => {
-        settingsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 100);
-      return;
-    }
-
-    const userMessage = question || chatInput.trim();
-    if (!userMessage && chatMessages.length === 0) {
-      // Initial request - get general advice
-      setCoachLoading(true);
-      try {
-        const response = await fetch("/api/coach", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey }),
-        });
-        const data = await response.json();
-        if (data.error) {
-          setChatMessages([{ role: "assistant", content: `Error: ${data.error}` }]);
-        } else {
-          setChatMessages([{ role: "assistant", content: data.message }]);
-        }
-      } catch {
-        setChatMessages([{ role: "assistant", content: "Failed to get coaching advice. Please try again." }]);
-      }
-      setCoachLoading(false);
-      return;
-    }
-
-    if (!userMessage) return;
-
-    // Add user message to chat
-    const newMessages: ChatMessage[] = [...chatMessages, { role: "user", content: userMessage }];
-    setChatMessages(newMessages);
-    setChatInput("");
-    setCoachLoading(true);
-
-    try {
-      const response = await fetch("/api/coach", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          apiKey,
-          question: userMessage,
-          conversationHistory: newMessages,
-        }),
-      });
-      const data = await response.json();
-      if (data.error) {
-        setChatMessages([...newMessages, { role: "assistant", content: `Error: ${data.error}` }]);
-      } else {
-        setChatMessages([...newMessages, { role: "assistant", content: data.message }]);
-      }
-    } catch {
-      setChatMessages([...newMessages, { role: "assistant", content: "Failed to get response. Please try again." }]);
-    }
-    setCoachLoading(false);
-  };
-
-  const handleChatSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (chatInput.trim()) {
-      askCoach(chatInput.trim());
-    }
-  };
-
-  const setGoal = async () => {
-    if (!goalWeight) return;
+  const setGoal = async (weight: number) => {
     await fetch("/api/goals", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetWeight: goalWeight }),
+      body: JSON.stringify({ targetWeight: weight }),
     });
-    // Refresh stats
     const [statsData, analysisData] = await Promise.all([
       fetch("/api/stats").then((r) => r.json()),
       fetch("/api/analysis").then((r) => r.json()),
     ]);
     setStats(statsData);
     setAnalysis(analysisData);
-    setGoalWeight("");
   };
 
   const saveEntry = async (entry: Partial<Entry>) => {
@@ -307,7 +217,7 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(entry),
     });
-    // Refresh game state (completing daily reflection quest affects XP)
+    setPrevGameState(gameState);
     const [gameData, entriesData] = await Promise.all([
       fetch("/api/game").then((r) => r.json()),
       fetch("/api/entries").then((r) => r.json()),
@@ -315,6 +225,32 @@ export default function Home() {
     setGameState(gameData);
     const todayEntryData = entriesData.find((e: Entry) => e.date === today);
     setTodayEntry(todayEntryData || null);
+  };
+
+  const logWeight = async (weight: number, date: string, notes?: string) => {
+    await fetch("/api/weights", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weightKg: weight, date, source: "manual", notes }),
+    });
+    setPrevGameState(gameState);
+    const [weightsData, statsData, analysisData, gameData] = await Promise.all([
+      fetch("/api/weights").then((r) => r.json()),
+      fetch("/api/stats").then((r) => r.json()),
+      fetch("/api/analysis").then((r) => r.json()),
+      fetch("/api/game").then((r) => r.json()),
+    ]);
+    setWeights(weightsData);
+    setStats(statsData);
+    setAnalysis(analysisData);
+    setGameState(gameData);
+  };
+
+  const dismissMilestone = (message: string) => {
+    const newDismissed = new Set(dismissedMilestones);
+    newDismissed.add(message);
+    setDismissedMilestones(newDismissed);
+    localStorage.setItem("wt-dismissed-milestones", JSON.stringify([...newDismissed]));
   };
 
   if (loading) {
@@ -325,308 +261,113 @@ export default function Home() {
     );
   }
 
-  const getTrend = (change: number | null): "up" | "down" | "same" => {
-    if (change === null) return "same";
-    if (change < -0.1) return "down";
-    if (change > 0.1) return "up";
-    return "same";
-  };
+  const highPriorityMilestones = analysis?.milestones
+    .filter((m) => m.importance === "high" && !dismissedMilestones.has(m.message)) || [];
 
-  const highPriorityMilestones = analysis?.milestones.filter((m) => m.importance === "high") || [];
+  const weighDates = weights.map(w => w.date);
 
-  return (
-    <main className="container mx-auto p-4 max-w-6xl">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Weight Tracker</h1>
-        <Button variant="ghost" size="icon" onClick={() => setShowSettings(!showSettings)}>
-          <Settings className="h-5 w-5" />
-        </Button>
-      </div>
-
-      {/* Settings Panel */}
-      {showSettings && (
-        <Card ref={settingsRef} className="mb-6">
-          <CardHeader>
+  // Gamification content for tab
+  const gamificationContent = (
+    <div className="space-y-4">
+      {/* Level & XP */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-center">
             <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Settings
+              <Star className="h-5 w-5 text-xp-gold" />
+              Level {gameState?.level || 1}
             </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Anthropic API Key (for AI Coach)</label>
-              <div className="flex gap-2 mt-1">
-                <Input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-ant-..."
-                  className="flex-1"
-                />
-                <Button onClick={saveApiKey}>Save</Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Get your API key from{" "}
-                <a href="https://console.anthropic.com" target="_blank" rel="noopener" className="underline">
-                  console.anthropic.com
-                </a>
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Set Goal Weight</label>
-              <div className="flex gap-2 mt-1">
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={goalWeight}
-                  onChange={(e) => setGoalWeight(e.target.value)}
-                  placeholder={stats?.goal ? `Current: ${stats.goal} kg` : "Target weight in kg"}
-                  className="max-w-[200px]"
-                />
-                <Button onClick={setGoal}>Set Goal</Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            <span className="text-sm text-muted-foreground">{gameState?.xp || 0} XP total</span>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Progress value={((gameState?.xp || 0) % 100)} className="h-2" />
+          <p className="text-xs text-muted-foreground mt-1">
+            {(gameState?.xp || 0) % 100} / 100 XP to level {(gameState?.level || 1) + 1}
+          </p>
+        </CardContent>
+      </Card>
 
-      {/* Milestones Banner */}
-      {highPriorityMilestones.length > 0 && (
-        <Card className="mb-6 border-yellow-400 bg-gradient-to-r from-yellow-50 to-orange-50">
-          <CardContent className="py-4">
-            <div className="flex items-start gap-3">
-              <Trophy className="h-6 w-6 text-yellow-600 mt-1" />
-              <div>
-                <h3 className="font-semibold text-yellow-800">Milestone Achieved!</h3>
-                {highPriorityMilestones.map((m, i) => (
-                  <p key={i} className="text-yellow-700">
-                    {m.message}
-                  </p>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Streak Calendar */}
+      <StreakCalendar currentStreak={gameState?.streak || 0} weighDates={weighDates} />
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-4 mb-6">
-        <StatCard
-          title="Current Weight"
-          value={stats ? `${stats.current.toFixed(1)} kg` : "-"}
-          subtitle={stats?.latestDate ? `as of ${format(new Date(stats.latestDate), "MMM d")}` : undefined}
-          icon={Scale}
-        />
-        <StatCard
-          title="Total Lost"
-          value={stats ? `${stats.totalLost.toFixed(1)} kg` : "-"}
-          subtitle={stats ? `from ${stats.starting.toFixed(1)} kg` : undefined}
-          icon={Award}
-          trend={stats && stats.totalLost > 0 ? "down" : "same"}
-          highlight={stats ? stats.totalLost >= 10 : undefined}
-        />
-        <StatCard
-          title="This Month"
-          value={
-            stats?.monthChange !== null && stats?.monthChange !== undefined
-              ? `${stats.monthChange > 0 ? "+" : ""}${stats.monthChange.toFixed(1)} kg`
-              : "-"
-          }
-          icon={Calendar}
-          trend={stats ? getTrend(stats.monthChange) : "same"}
-        />
-        <StatCard
-          title="To Goal"
-          value={stats?.toGoal !== null && stats?.toGoal !== undefined ? `${stats.toGoal.toFixed(1)} kg` : "Set goal ↗"}
-          subtitle={
-            analysis?.trends.predictedGoalDate
-              ? `Est. ${format(new Date(analysis.trends.predictedGoalDate), "MMM yyyy")}`
-              : stats?.goal
-              ? `target: ${stats.goal} kg`
-              : undefined
-          }
-          icon={Target}
-        />
-      </div>
-
-      {/* Chart - Full Width with Activity */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Progress
-            <span
-              className={`text-sm font-normal ${
-                analysis?.trends.trend === "losing"
-                  ? "text-green-600"
-                  : analysis?.trends.trend === "gaining"
-                  ? "text-red-600"
-                  : "text-muted-foreground"
+      {/* Daily Quests */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Target className="h-4 w-4" />
+            Daily Quests
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {gameState?.dailyQuests.map((quest) => (
+            <div
+              key={quest.id}
+              className={`flex items-center justify-between p-2 rounded ${
+                quest.completed ? "bg-green-50" : "bg-muted/50"
               }`}
             >
-              {analysis?.trends.trend === "losing"
-                ? "📉 Trending down"
-                : analysis?.trends.trend === "gaining"
-                ? "📈 Trending up"
-                : "Stable"}
-            </span>
-          </CardTitle>
-          <CardDescription>
-            Weight trend with activity data overlay • Select timespan to explore your history
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {weights.length > 0 ? (
-            <WeightActivityChart
-              weights={weights}
-              steps={steps}
-              workouts={workouts}
-              goalWeight={stats?.goal ?? undefined}
-            />
-          ) : (
-            <p className="text-muted-foreground text-center py-8">No weight data yet.</p>
-          )}
+              <div className="flex items-center gap-2">
+                {quest.completed ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                ) : (
+                  <Circle className="h-4 w-4 text-muted-foreground" />
+                )}
+                <div>
+                  <p className={`text-sm ${quest.completed ? "line-through text-muted-foreground" : ""}`}>
+                    {quest.name}
+                  </p>
+                  {quest.progress !== undefined && quest.target && !quest.completed && (
+                    <p className="text-xs text-muted-foreground">
+                      {quest.progress}/{quest.target}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <span className={`text-xs font-medium ${quest.completed ? "text-green-600" : "text-muted-foreground"}`}>
+                +{quest.xpReward} XP
+              </span>
+            </div>
+          ))}
         </CardContent>
       </Card>
 
-      {/* Activity & Insights - Two Column */}
-      <div className="grid gap-6 lg:grid-cols-2 mb-6">
-        {/* Activity Panel */}
-        <div>
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Footprints className="h-5 w-5" />
-            Activity
-          </h2>
-          <ActivityPanel stats={activityStats} />
-        </div>
+      {/* Badge Showcase */}
+      <BadgeShowcase earnedBadges={gameState?.badges || []} />
+    </div>
+  );
 
-        {/* Insights Panel */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Lightbulb className="h-5 w-5" />
-              Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {analysis?.insights.map((insight, i) => (
-              <p key={i} className="text-sm">
-                {insight}
-              </p>
-            ))}
-            {analysis?.historicalComparisons.slice(0, 2).map((comp, i) => (
-              <p key={`comp-${i}`} className="text-sm text-muted-foreground">
-                📅 {comp.message}
-              </p>
-            ))}
-            {(!analysis?.insights.length && !analysis?.historicalComparisons.length) && (
-              <p className="text-sm text-muted-foreground">
-                Keep logging to unlock insights!
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* AI Coach - Interactive Chat */}
-      <Card className="mb-6">
+  // Insights content for tab
+  const insightsContent = (
+    <div className="space-y-4">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Bot className="h-5 w-5" />
-            AI Coach
-            <Sparkles className="h-4 w-4 text-yellow-500" />
+            <Lightbulb className="h-5 w-5" />
+            Insights
           </CardTitle>
-          <CardDescription>
-            Get personalized advice powered by Claude • Ask questions about your progress
-          </CardDescription>
         </CardHeader>
-        <CardContent>
-          {chatMessages.length > 0 ? (
-            <div className="space-y-4">
-              {/* Chat Messages */}
-              <div className="max-h-96 overflow-y-auto space-y-4 p-4 bg-muted/50 rounded-lg">
-                {chatMessages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[85%] rounded-lg p-3 ${
-                        msg.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-background border"
-                      }`}
-                    >
-                      {msg.role === "assistant" ? (
-                        <div className="prose prose-sm max-w-none dark:prose-invert">
-                          {msg.content.split("\n").map((p, j) => (
-                            <p key={j} className="mb-2 last:mb-0">{p}</p>
-                          ))}
-                        </div>
-                      ) : (
-                        <p>{msg.content}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {coachLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-background border rounded-lg p-3">
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    </div>
-                  </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
-
-              {/* Chat Input */}
-              <form onSubmit={handleChatSubmit} className="flex gap-2">
-                <Input
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Ask about your weight, activity, tips..."
-                  disabled={coachLoading}
-                  className="flex-1"
-                />
-                <Button type="submit" disabled={coachLoading || !chatInput.trim()}>
-                  <Send className="h-4 w-4" />
-                </Button>
-              </form>
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <p className="text-muted-foreground mb-4">
-                Get personalized coaching based on your {weights.length} weight entries and {activityStats?.totalWorkouts || 0} workouts
-              </p>
-              <Button onClick={() => askCoach()} disabled={coachLoading} size="lg">
-                {coachLoading ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Start Chat with AI Coach
-                  </>
-                )}
-              </Button>
-            </div>
+        <CardContent className="space-y-3">
+          {analysis?.insights.map((insight, i) => (
+            <p key={i} className="text-sm">
+              {insight}
+            </p>
+          ))}
+          {analysis?.historicalComparisons.slice(0, 2).map((comp, i) => (
+            <p key={`comp-${i}`} className="text-sm text-muted-foreground">
+              📅 {comp.message}
+            </p>
+          ))}
+          {(!analysis?.insights.length && !analysis?.historicalComparisons.length) && (
+            <p className="text-sm text-muted-foreground">
+              Keep logging to unlock insights!
+            </p>
           )}
         </CardContent>
       </Card>
 
-      {/* Gamification & Lifestyle - Two Column */}
-      <div className="grid gap-6 lg:grid-cols-2 mb-6">
-        {/* Gamification */}
-        <GamificationPanel gameState={gameState} />
-
-        {/* Daily Check-in */}
-        <LifestyleTracker todayEntry={todayEntry} onSave={saveEntry} />
-      </div>
-
-      {/* Trend Details */}
-      <Card className="mb-6">
+      {/* Trend Analysis */}
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Flame className="h-5 w-5" />
@@ -634,10 +375,10 @@ export default function Home() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-muted-foreground">This Week</p>
-              <p className={`text-lg font-semibold ${analysis?.trends.weeklyChange && analysis.trends.weeklyChange < 0 ? "text-green-600" : analysis?.trends.weeklyChange && analysis.trends.weeklyChange > 0 ? "text-red-600" : ""}`}>
+              <p className={`text-lg font-semibold ${analysis?.trends.weeklyChange && analysis.trends.weeklyChange < 0 ? "text-weight-loss" : analysis?.trends.weeklyChange && analysis.trends.weeklyChange > 0 ? "text-weight-gain" : ""}`}>
                 {analysis?.trends.weeklyChange !== undefined
                   ? `${analysis.trends.weeklyChange > 0 ? "+" : ""}${analysis.trends.weeklyChange.toFixed(1)} kg`
                   : "-"}
@@ -645,7 +386,7 @@ export default function Home() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">This Month</p>
-              <p className={`text-lg font-semibold ${analysis?.trends.monthlyChange && analysis.trends.monthlyChange < 0 ? "text-green-600" : analysis?.trends.monthlyChange && analysis.trends.monthlyChange > 0 ? "text-red-600" : ""}`}>
+              <p className={`text-lg font-semibold ${analysis?.trends.monthlyChange && analysis.trends.monthlyChange < 0 ? "text-weight-loss" : analysis?.trends.monthlyChange && analysis.trends.monthlyChange > 0 ? "text-weight-gain" : ""}`}>
                 {analysis?.trends.monthlyChange !== undefined
                   ? `${analysis.trends.monthlyChange > 0 ? "+" : ""}${analysis.trends.monthlyChange.toFixed(1)} kg`
                   : "-"}
@@ -653,7 +394,7 @@ export default function Home() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">3 Months</p>
-              <p className={`text-lg font-semibold ${analysis?.trends.threeMonthChange && analysis.trends.threeMonthChange < 0 ? "text-green-600" : analysis?.trends.threeMonthChange && analysis.trends.threeMonthChange > 0 ? "text-red-600" : ""}`}>
+              <p className={`text-lg font-semibold ${analysis?.trends.threeMonthChange && analysis.trends.threeMonthChange < 0 ? "text-weight-loss" : analysis?.trends.threeMonthChange && analysis.trends.threeMonthChange > 0 ? "text-weight-gain" : ""}`}>
                 {analysis?.trends.threeMonthChange !== undefined
                   ? `${analysis.trends.threeMonthChange > 0 ? "+" : ""}${analysis.trends.threeMonthChange.toFixed(1)} kg`
                   : "-"}
@@ -661,7 +402,7 @@ export default function Home() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">This Year</p>
-              <p className={`text-lg font-semibold ${analysis?.trends.yearlyChange && analysis.trends.yearlyChange < 0 ? "text-green-600" : analysis?.trends.yearlyChange && analysis.trends.yearlyChange > 0 ? "text-red-600" : ""}`}>
+              <p className={`text-lg font-semibold ${analysis?.trends.yearlyChange && analysis.trends.yearlyChange < 0 ? "text-weight-loss" : analysis?.trends.yearlyChange && analysis.trends.yearlyChange > 0 ? "text-weight-gain" : ""}`}>
                 {analysis?.trends.yearlyChange !== undefined
                   ? `${analysis.trends.yearlyChange > 0 ? "+" : ""}${analysis.trends.yearlyChange.toFixed(1)} kg`
                   : "-"}
@@ -680,7 +421,7 @@ export default function Home() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
+          <div className="space-y-2 max-h-64 overflow-y-auto">
             {weights.slice(0, 10).map((w, i) => {
               const prevWeight = weights[i + 1]?.weightKg;
               const change = prevWeight ? w.weightKg - prevWeight : null;
@@ -699,7 +440,7 @@ export default function Home() {
                     {change !== null && (
                       <span
                         className={`text-xs ${
-                          change < 0 ? "text-green-600" : change > 0 ? "text-red-600" : "text-muted-foreground"
+                          change < 0 ? "text-weight-loss" : change > 0 ? "text-weight-gain" : "text-muted-foreground"
                         }`}
                       >
                         {change > 0 ? "+" : ""}
@@ -714,11 +455,143 @@ export default function Home() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+
+  return (
+    <main className="container mx-auto p-4 max-w-6xl">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Weight Tracker</h1>
+        <Button variant="ghost" size="icon" onClick={() => setShowSettings(true)}>
+          <Settings className="h-5 w-5" />
+        </Button>
+      </div>
+
+      {/* Hero Section */}
+      <HeroSection
+        stats={stats}
+        gameState={gameState}
+        hasCheckedInToday={!!todayEntry}
+        onLogWeight={() => {}}
+        onCheckIn={() => setShowCheckin(true)}
+      />
+
+      {/* Milestones Banner */}
+      {highPriorityMilestones.length > 0 && (
+        <Card className="mb-6 border-yellow-400 bg-gradient-to-r from-yellow-50 to-orange-50">
+          <CardContent className="py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <Trophy className="h-6 w-6 text-yellow-600 mt-1" />
+                <div>
+                  <h3 className="font-semibold text-yellow-800">Milestone Achieved!</h3>
+                  {highPriorityMilestones.map((m, i) => (
+                    <p key={i} className="text-yellow-700">
+                      {m.message}
+                    </p>
+                  ))}
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-yellow-600 hover:text-yellow-800 hover:bg-yellow-100"
+                onClick={() => highPriorityMilestones.forEach(m => dismissMilestone(m.message))}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Chart - Full Width */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            Progress
+            <span
+              className={`text-sm font-normal ${
+                analysis?.trends.trend === "losing"
+                  ? "text-weight-loss"
+                  : analysis?.trends.trend === "gaining"
+                  ? "text-weight-gain"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {analysis?.trends.trend === "losing"
+                ? "📉 Trending down"
+                : analysis?.trends.trend === "gaining"
+                ? "📈 Trending up"
+                : "Stable"}
+            </span>
+          </CardTitle>
+          <CardDescription>
+            Weight trend with activity data overlay
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {weights.length > 0 ? (
+            <WeightActivityChart
+              weights={weights}
+              steps={steps}
+              workouts={workouts}
+              goalWeight={stats?.goal ?? undefined}
+            />
+          ) : (
+            <p className="text-muted-foreground text-center py-8">No weight data yet.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Tabbed Content */}
+      <TabContainer
+        activityContent={<ActivityPanel stats={activityStats} />}
+        insightsContent={insightsContent}
+        coachContent={
+          <AICoachPanel
+            apiKey={apiKey}
+            onApiKeyMissing={() => setShowSettings(true)}
+            weightCount={weights.length}
+            workoutCount={activityStats?.totalWorkouts || 0}
+          />
+        }
+        gamificationContent={gamificationContent}
+      />
 
       {/* Footer */}
       <p className="text-center text-sm text-muted-foreground mt-8">
         Data from Apple Health • Re-import anytime with the import script
       </p>
+
+      {/* Modals */}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        apiKey={apiKey}
+        onSaveApiKey={saveApiKey}
+        currentGoal={stats?.goal || null}
+        onSaveGoal={setGoal}
+      />
+
+      <DailyCheckinModal
+        isOpen={showCheckin}
+        onClose={() => setShowCheckin(false)}
+        todayEntry={todayEntry}
+        onSave={saveEntry}
+      />
+
+      <CelebrationModal
+        celebration={celebration}
+        onClose={() => setCelebration(null)}
+      />
+
+      {/* Floating Action Button */}
+      <FloatingActionButton
+        currentWeight={stats?.current}
+        onSubmit={logWeight}
+      />
     </main>
   );
 }
