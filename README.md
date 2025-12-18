@@ -44,16 +44,23 @@ npm run dev
 
 1. Export your Apple Health data from iPhone (Health app → Profile → Export All Health Data)
 2. Extract the ZIP file
-3. Run the import script:
+3. Copy `export.xml` to the `imports/` folder in the project
+4. Run the import:
 
 ```bash
-npm run import /path/to/apple_health_export/export.xml
+npm run import
+```
+
+Or specify a custom path:
+```bash
+npx tsx scripts/import-apple-health.ts /path/to/export.xml
 ```
 
 The import script:
 - Creates automatic backups before importing
 - Deduplicates data from multiple devices (iPhone + Apple Watch)
 - Imports weights, daily steps, and workouts
+- **Safe**: Settings, goals, and check-ins are never modified
 
 ### Database Commands
 

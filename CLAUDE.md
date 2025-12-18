@@ -51,6 +51,7 @@ Apple Health XML → scripts/import-apple-health.ts → SQLite (weight-tracker.d
 - `entries` - Daily check-ins (notes, energy, fasting)
 - `daily_steps` - Aggregated step counts per day
 - `workouts` - Individual workout sessions (type, duration, distance)
+- `settings` - Key-value store (API key stored as `anthropic_api_key`)
 
 ### Key API Routes
 | Route | Purpose |
@@ -61,6 +62,7 @@ Apple Health XML → scripts/import-apple-health.ts → SQLite (weight-tracker.d
 | `/api/game` | Gamification state (XP, level, badges) |
 | `/api/coach` | AI coaching via Claude API |
 | `/api/steps`, `/api/workouts`, `/api/activity-stats` | Activity data |
+| `/api/settings` | Key-value settings (API key) |
 
 ### Main Dashboard (src/app/page.tsx)
 Single-page dashboard with sections: Stats cards → Progress chart → Activity panel → Insights → AI Coach → Gamification → Daily check-in → Trends → Recent entries
@@ -75,9 +77,14 @@ The import script (`scripts/import-apple-health.ts`):
 - Uses max single-source step count per day to avoid double-counting
 - Supports weights, steps, and workouts (walking, cycling, etc.)
 
+**Import data safety:**
+- ✅ Safe (never touched): `settings`, `goals`, `entries`
+- ⚠️ Upserted by date: `weights`, `daily_steps`
+- ✅ Insert-only: `workouts` (duplicates ignored)
+
 ### Chart Component (src/components/weight-activity-chart.tsx)
 Dual-axis ComposedChart showing:
-- Weight trend (left Y-axis)
+- Weight trend (left Y-axis, auto-scales to data range for better trend visibility)
 - Steps as bars + Walking km as bars (right Y-axis)
 - Time controls: 30D/90D/1Y/3Y/5Y/10Y/All
 - Precision controls: Day/Week/Month/Year
