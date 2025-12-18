@@ -21,7 +21,7 @@ npm run db:migrate    # Run pending migrations
 npm run db:studio     # Open Drizzle Studio GUI
 
 # Apple Health Import
-npm run import                                    # Import from default path
+npm run import                                    # Import from imports/export.xml
 npx tsx scripts/import-apple-health.ts /path/to/export.xml  # Custom path
 npm run watch                                     # Watch mode for auto-import
 ```
@@ -66,7 +66,10 @@ Apple Health XML → scripts/import-apple-health.ts → SQLite (weight-tracker.d
 Single-page dashboard with sections: Stats cards → Progress chart → Activity panel → Insights → AI Coach → Gamification → Daily check-in → Trends → Recent entries
 
 ### Apple Health Import
+**Workflow**: Export from iPhone Health app → Unzip → Copy `export.xml` to `imports/` folder → Run `npm run import`
+
 The import script (`scripts/import-apple-health.ts`):
+- Default import path: `imports/export.xml` (in project root)
 - Creates automatic backup before import (in `backups/`)
 - Deduplicates data from multiple devices (iPhone + Watch)
 - Uses max single-source step count per day to avoid double-counting

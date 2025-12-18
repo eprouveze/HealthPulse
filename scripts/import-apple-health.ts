@@ -10,7 +10,7 @@ import { createReadStream, copyFileSync, existsSync, mkdirSync } from "fs";
 import { createInterface } from "readline";
 import path from "path";
 
-const xmlPath = process.argv[2] || "/tmp/health_export/apple_health_export/export.xml";
+const xmlPath = process.argv[2] || path.join(process.cwd(), "imports", "export.xml");
 const dbPath = path.join(process.cwd(), "weight-tracker.db");
 const backupDir = path.join(process.cwd(), "backups");
 

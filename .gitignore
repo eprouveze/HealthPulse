@@ -47,5 +47,9 @@ next-env.d.ts
 # Database backups
 backups/
 
+# Apple Health imports (keep folder, ignore contents)
+imports/*
+!imports/.gitkeep
+
 # Playwright screenshots
 /Playwright/
