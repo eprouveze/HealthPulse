@@ -49,6 +49,36 @@ export const settings = sqliteTable("settings", {
   updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
+export const dailySleep = sqliteTable("daily_sleep", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  date: text("date").notNull().unique(), // Sleep end date (the morning)
+  sleepStart: text("sleep_start").notNull(), // ISO datetime
+  sleepEnd: text("sleep_end").notNull(), // ISO datetime
+  durationMinutes: real("duration_minutes").notNull(),
+  inBedMinutes: real("in_bed_minutes"), // Total time in bed (may differ from sleep)
+  source: text("source").default("apple_health"),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+export const restingHeartRate = sqliteTable("resting_heart_rate", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  date: text("date").notNull().unique(), // One per day
+  bpm: integer("bpm").notNull(),
+  source: text("source").default("apple_health"),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+export const workoutRoutes = sqliteTable("workout_routes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  date: text("date").notNull(),
+  activityType: text("activity_type").notNull(),
+  durationMinutes: real("duration_minutes").notNull(),
+  distanceKm: real("distance_km"),
+  routeData: text("route_data").notNull(), // JSON array of {lat, lon} points
+  source: text("source").default("apple_health"),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
 // Types
 export type Weight = typeof weights.$inferSelect;
 export type NewWeight = typeof weights.$inferInsert;
@@ -60,3 +90,9 @@ export type DailyStep = typeof dailySteps.$inferSelect;
 export type NewDailyStep = typeof dailySteps.$inferInsert;
 export type Workout = typeof workouts.$inferSelect;
 export type NewWorkout = typeof workouts.$inferInsert;
+export type DailySleep = typeof dailySleep.$inferSelect;
+export type NewDailySleep = typeof dailySleep.$inferInsert;
+export type RestingHeartRate = typeof restingHeartRate.$inferSelect;
+export type NewRestingHeartRate = typeof restingHeartRate.$inferInsert;
+export type WorkoutRoute = typeof workoutRoutes.$inferSelect;
+export type NewWorkoutRoute = typeof workoutRoutes.$inferInsert;

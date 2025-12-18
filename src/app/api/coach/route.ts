@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
-import { weights, goals, dailySteps, workouts } from "@/lib/schema";
+import { weights, goals, dailySteps, workouts, dailySleep, restingHeartRate, workoutRoutes } from "@/lib/schema";
 import { desc, eq } from "drizzle-orm";
 
-const SYSTEM_PROMPT = `You are a supportive and knowledgeable weight loss coach. You have access to the user's COMPLETE weight history, activity data (steps, workouts), and current progress spanning multiple years.
+const SYSTEM_PROMPT = `You are a supportive and knowledgeable weight loss coach. You have access to the user's COMPLETE weight history, activity data (steps, workouts), health metrics (sleep, resting heart rate, GPS-tracked workout routes), and current progress spanning multiple years.
 
 IMPORTANT MEDICAL CONTEXT:
 The user had a successful sleeve gastrectomy (bariatric surgery) on November 1, 2018. This is crucial context for understanding their weight journey:
@@ -35,7 +35,11 @@ Guidelines:
 - Walking is this user's primary exercise - encourage and celebrate it
 - You have access to ALL historical data - use it to provide insights and comparisons
 - Reference their actual activity data when giving advice
-- When discussing their journey, acknowledge the surgery as a tool that requires ongoing lifestyle commitment`;
+- When discussing their journey, acknowledge the surgery as a tool that requires ongoing lifestyle commitment
+- Use sleep data to identify patterns (poor sleep correlates with weight gain/stalls)
+- Use resting heart rate trends as an indicator of fitness level and recovery
+- Note correlations between sleep quality, activity levels, and weight changes
+- GPS-tracked routes show actual distances walked - use this for precise activity analysis`;
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -57,6 +61,9 @@ export async function POST(request: Request) {
     const allWeights = await db.select().from(weights).orderBy(weights.date);
     const allSteps = await db.select().from(dailySteps).orderBy(dailySteps.date);
     const allWorkouts = await db.select().from(workouts).orderBy(workouts.date);
+    const allSleep = await db.select().from(dailySleep).orderBy(dailySleep.date);
+    const allRestingHR = await db.select().from(restingHeartRate).orderBy(restingHeartRate.date);
+    const allRoutes = await db.select().from(workoutRoutes).orderBy(workoutRoutes.date);
     const activeGoal = await db
       .select()
       .from(goals)
@@ -84,15 +91,43 @@ export async function POST(request: Request) {
       .map(w => `${w.date}:${w.activityType}:${Math.round(w.durationMinutes)}:${w.distanceKm?.toFixed(1) || 0}`)
       .join("|");
 
+    // Format sleep data compactly (date:hours)
+    const sleepHistory = allSleep
+      .map(s => `${s.date}:${(s.durationMinutes / 60).toFixed(1)}`)
+      .join("|");
+
+    // Format resting HR data compactly (date:bpm)
+    const restingHRHistory = allRestingHR
+      .map(h => `${h.date}:${h.bpm}`)
+      .join("|");
+
+    // Format workout routes compactly (date:type:mins:km:gpsPoints)
+    const routesHistory = allRoutes
+      .map(r => {
+        const routeData = typeof r.routeData === "string" ? JSON.parse(r.routeData) : r.routeData;
+        return `${r.date}:${r.activityType}:${Math.round(r.durationMinutes)}:${r.distanceKm?.toFixed(1) || 0}:${routeData.length}pts`;
+      })
+      .join("|");
+
     // Calculate summary stats
     const recentWeights = allWeights.slice(-30);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const recentSteps = allSteps.filter(s => s.date >= thirtyDaysAgo);
     const recentWorkouts = allWorkouts.filter(w => w.date >= thirtyDaysAgo);
+    const recentSleep = allSleep.filter(s => s.date >= thirtyDaysAgo);
+    const recentHR = allRestingHR.filter(h => h.date >= thirtyDaysAgo);
 
     const avgStepsLast30 = recentSteps.length > 0
       ? Math.round(recentSteps.reduce((a, b) => a + b.stepCount, 0) / recentSteps.length)
       : 0;
+
+    const avgSleepLast30 = recentSleep.length > 0
+      ? (recentSleep.reduce((a, b) => a + b.durationMinutes, 0) / recentSleep.length / 60).toFixed(1)
+      : "N/A";
+
+    const avgHRLast30 = recentHR.length > 0
+      ? Math.round(recentHR.reduce((a, b) => a + b.bpm, 0) / recentHR.length)
+      : "N/A";
 
     const walkingWorkouts = allWorkouts.filter(w => w.activityType === "walking");
     const totalWalkingKm = walkingWorkouts.reduce((a, b) => a + (b.distanceKm || 0), 0);
@@ -108,13 +143,14 @@ export async function POST(request: Request) {
       .join(", ");
 
     // Yearly summaries for quick reference
-    const yearlyStats: Record<string, { avgWeight: number; totalSteps: number; totalWorkouts: number; walkingKm: number }> = {};
+    const yearlyStats: Record<string, { avgWeight: number; weightCount: number; totalSteps: number; totalWorkouts: number; walkingKm: number; avgSleep: number; sleepCount: number; avgHR: number; hrCount: number }> = {};
     for (const w of allWeights) {
       const year = w.date.slice(0, 4);
       if (!yearlyStats[year]) {
-        yearlyStats[year] = { avgWeight: 0, totalSteps: 0, totalWorkouts: 0, walkingKm: 0 };
+        yearlyStats[year] = { avgWeight: 0, weightCount: 0, totalSteps: 0, totalWorkouts: 0, walkingKm: 0, avgSleep: 0, sleepCount: 0, avgHR: 0, hrCount: 0 };
       }
       yearlyStats[year].avgWeight += w.weightKg;
+      yearlyStats[year].weightCount++;
     }
     for (const s of allSteps) {
       const year = s.date.slice(0, 4);
@@ -131,21 +167,35 @@ export async function POST(request: Request) {
         }
       }
     }
+    for (const s of allSleep) {
+      const year = s.date.slice(0, 4);
+      if (yearlyStats[year]) {
+        yearlyStats[year].avgSleep += s.durationMinutes / 60;
+        yearlyStats[year].sleepCount++;
+      }
+    }
+    for (const h of allRestingHR) {
+      const year = h.date.slice(0, 4);
+      if (yearlyStats[year]) {
+        yearlyStats[year].avgHR += h.bpm;
+        yearlyStats[year].hrCount++;
+      }
+    }
 
     // Calculate averages
-    const weightCountByYear: Record<string, number> = {};
-    for (const w of allWeights) {
-      const year = w.date.slice(0, 4);
-      weightCountByYear[year] = (weightCountByYear[year] || 0) + 1;
-    }
     for (const year of Object.keys(yearlyStats)) {
-      yearlyStats[year].avgWeight = Math.round(yearlyStats[year].avgWeight / weightCountByYear[year] * 10) / 10;
+      const s = yearlyStats[year];
+      s.avgWeight = s.weightCount > 0 ? Math.round(s.avgWeight / s.weightCount * 10) / 10 : 0;
+      s.avgSleep = s.sleepCount > 0 ? Math.round(s.avgSleep / s.sleepCount * 10) / 10 : 0;
+      s.avgHR = s.hrCount > 0 ? Math.round(s.avgHR / s.hrCount) : 0;
     }
 
     const yearlySummary = Object.entries(yearlyStats)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([year, stats]) =>
-        `${year}: avgWeight=${stats.avgWeight}kg, steps=${Math.round(stats.totalSteps/1000)}k, workouts=${stats.totalWorkouts}, walkingKm=${Math.round(stats.walkingKm)}`
+        `${year}: avgWeight=${stats.avgWeight}kg, steps=${Math.round(stats.totalSteps/1000)}k, workouts=${stats.totalWorkouts}, walkingKm=${Math.round(stats.walkingKm)}` +
+        (stats.avgSleep > 0 ? `, avgSleep=${stats.avgSleep}h` : "") +
+        (stats.avgHR > 0 ? `, avgHR=${stats.avgHR}bpm` : "")
       )
       .join("\n");
 
@@ -156,9 +206,9 @@ Starting: ${earliest.weightKg}kg (${earliest.date})
 Total change: ${(earliest.weightKg - current.weightKg).toFixed(1)}kg over ${totalDays} days
 Goal: ${activeGoal[0] ? `${activeGoal[0].targetWeight}kg (${(current.weightKg - activeGoal[0].targetWeight).toFixed(1)}kg to go)` : "Not set"}
 
-Last 30 days: Avg ${avgStepsLast30.toLocaleString()} steps/day, ${recentWorkouts.length} workouts
+Last 30 days: Avg ${avgStepsLast30.toLocaleString()} steps/day, ${recentWorkouts.length} workouts, Avg sleep ${avgSleepLast30}h, Avg resting HR ${avgHRLast30}bpm
 
-All-time: ${allWeights.length} weigh-ins, ${allSteps.length} step days, ${allWorkouts.length} workouts
+All-time: ${allWeights.length} weigh-ins, ${allSteps.length} step days, ${allWorkouts.length} workouts, ${allSleep.length} sleep nights, ${allRestingHR.length} HR readings, ${allRoutes.length} GPS routes
 Total walking: ${Math.round(totalWalkingKm)}km across ${walkingWorkouts.length} sessions
 Workout types: ${workoutBreakdown}
 
@@ -176,6 +226,18 @@ ${stepsHistory}
 === COMPLETE WORKOUT HISTORY (${allWorkouts.length} entries) ===
 Format: date:type:minutes:km|...
 ${workoutHistory}
+
+=== COMPLETE SLEEP HISTORY (${allSleep.length} entries) ===
+Format: date:hours|date:hours|...
+${sleepHistory}
+
+=== COMPLETE RESTING HEART RATE HISTORY (${allRestingHR.length} entries) ===
+Format: date:bpm|date:bpm|...
+${restingHRHistory}
+
+=== GPS-TRACKED WORKOUT ROUTES (${allRoutes.length} entries) ===
+Format: date:type:minutes:km:gpsPoints|...
+${routesHistory}
 `;
 
     const client = new Anthropic({ apiKey });
@@ -224,6 +286,9 @@ ${workoutHistory}
           weights: allWeights.length,
           steps: allSteps.length,
           workouts: allWorkouts.length,
+          sleep: allSleep.length,
+          restingHR: allRestingHR.length,
+          routes: allRoutes.length,
         },
       },
     });

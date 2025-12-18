@@ -21,7 +21,7 @@ npm run db:migrate    # Run pending migrations
 npm run db:studio     # Open Drizzle Studio GUI
 
 # Apple Health Import
-npm run import                                    # Import from imports/export.xml
+npm run import                                    # Import from imports/apple_health_export/export.xml
 npx tsx scripts/import-apple-health.ts /path/to/export.xml  # Custom path
 npm run watch                                     # Watch mode for auto-import
 ```
@@ -51,6 +51,9 @@ Apple Health XML → scripts/import-apple-health.ts → SQLite (weight-tracker.d
 - `entries` - Daily check-ins (notes, energy, fasting)
 - `daily_steps` - Aggregated step counts per day
 - `workouts` - Individual workout sessions (type, duration, distance)
+- `daily_sleep` - Sleep data (start, end, duration, in-bed time)
+- `resting_heart_rate` - Daily resting HR (bpm)
+- `workout_routes` - GPS routes (JSON array of lat/lon points)
 - `settings` - Key-value store (API key stored as `anthropic_api_key`)
 
 ### Key API Routes
@@ -62,25 +65,26 @@ Apple Health XML → scripts/import-apple-health.ts → SQLite (weight-tracker.d
 | `/api/game` | Gamification state (XP, level, badges) |
 | `/api/coach` | AI coaching via Claude API |
 | `/api/steps`, `/api/workouts`, `/api/activity-stats` | Activity data |
+| `/api/sleep`, `/api/resting-hr`, `/api/workout-routes` | Health metrics |
 | `/api/settings` | Key-value settings (API key) |
 
 ### Main Dashboard (src/app/page.tsx)
 Single-page dashboard with sections: Stats cards → Progress chart → Activity panel → Insights → AI Coach → Gamification → Daily check-in → Trends → Recent entries
 
 ### Apple Health Import
-**Workflow**: Export from iPhone Health app → Unzip → Copy `export.xml` to `imports/` folder → Run `npm run import`
+**Workflow**: Export from iPhone Health app → Unzip → Copy entire `apple_health_export` folder to `imports/` → Run `npm run import`
 
 The import script (`scripts/import-apple-health.ts`):
-- Default import path: `imports/export.xml` (in project root)
+- Default path: `imports/apple_health_export/export.xml`
+- Also reads: `imports/apple_health_export/workout-routes/*.gpx`
 - Creates automatic backup before import (in `backups/`)
 - Deduplicates data from multiple devices (iPhone + Watch)
-- Uses max single-source step count per day to avoid double-counting
-- Supports weights, steps, and workouts (walking, cycling, etc.)
+- Imports: weights, steps, workouts, sleep, resting HR, GPS routes
 
 **Import data safety:**
 - ✅ Safe (never touched): `settings`, `goals`, `entries`
-- ⚠️ Upserted by date: `weights`, `daily_steps`
-- ✅ Insert-only: `workouts` (duplicates ignored)
+- ⚠️ Upserted by date: `weights`, `daily_steps`, `daily_sleep`, `resting_heart_rate`
+- ✅ Insert-only: `workouts`, `workout_routes` (duplicates ignored)
 
 ### Chart Component (src/components/weight-activity-chart.tsx)
 Dual-axis ComposedChart showing:
@@ -116,3 +120,9 @@ Never push before documenting. Keep changes atomic in a single commit when possi
 
 ## Platform
 **Mac desktop only** - Not a mobile app. Optimize for keyboard shortcuts, data density, and wide screen layouts.
+
+## Playwright MCP
+When using Playwright MCP for screenshots, PDFs, or any file output:
+- **Always** save to the `Playwright/` folder in the project root
+- **Never** save to the default Downloads folder
+- Use `downloadsDir` parameter: `/Users/eprouveze/Private/WeightTracker/Playwright/`

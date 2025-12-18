@@ -7,6 +7,7 @@ import { WeightActivityChart } from "@/components/weight-activity-chart";
 import { ActivityPanel } from "@/components/activity-panel";
 import { HeroSection } from "@/components/dashboard/hero-section";
 import { TabContainer } from "@/components/dashboard/tab-container";
+import { HealthPanel } from "@/components/dashboard/health-panel";
 import { SettingsModal } from "@/components/dashboard/settings-modal";
 import { DailyCheckinModal } from "@/components/dashboard/daily-checkin-modal";
 import { CelebrationModal, checkForCelebrations } from "@/components/gamification/celebration-modal";
@@ -112,6 +113,30 @@ interface ActivityStats {
   recentSteps: { date: string; steps: number }[];
 }
 
+interface SleepData {
+  id: number;
+  date: string;
+  sleepStart: string;
+  sleepEnd: string;
+  durationMinutes: number;
+  inBedMinutes: number | null;
+}
+
+interface RestingHRData {
+  id: number;
+  date: string;
+  bpm: number;
+}
+
+interface WorkoutRouteData {
+  id: number;
+  date: string;
+  activityType: string;
+  durationMinutes: number;
+  distanceKm: number | null;
+  routeData: { lat: number; lon: number }[];
+}
+
 interface CelebrationData {
   type: "levelUp" | "badgeEarned" | "streakMilestone" | "goalReached";
   title: string;
@@ -125,6 +150,9 @@ export default function Home() {
   const [steps, setSteps] = useState<StepData[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutData[]>([]);
   const [activityStats, setActivityStats] = useState<ActivityStats | null>(null);
+  const [sleepData, setSleepData] = useState<SleepData[]>([]);
+  const [restingHR, setRestingHR] = useState<RestingHRData[]>([]);
+  const [workoutRoutes, setWorkoutRoutes] = useState<WorkoutRouteData[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -164,7 +192,10 @@ export default function Home() {
       fetch("/api/workouts").then((r) => r.json()),
       fetch("/api/activity-stats").then((r) => r.json()),
       fetch("/api/settings?key=anthropic_api_key").then((r) => r.json()),
-    ]).then(([weightsData, statsData, analysisData, gameData, entriesData, stepsData, workoutsData, activityStatsData, apiKeyData]) => {
+      fetch("/api/sleep").then((r) => r.json()),
+      fetch("/api/resting-hr").then((r) => r.json()),
+      fetch("/api/workout-routes").then((r) => r.json()),
+    ]).then(([weightsData, statsData, analysisData, gameData, entriesData, stepsData, workoutsData, activityStatsData, apiKeyData, sleepDataRes, restingHRRes, workoutRoutesRes]) => {
       setWeights(weightsData);
       setStats(statsData);
       setAnalysis(analysisData);
@@ -172,6 +203,9 @@ export default function Home() {
       setSteps(stepsData);
       setWorkouts(workoutsData);
       setActivityStats(activityStatsData);
+      setSleepData(sleepDataRes);
+      setRestingHR(restingHRRes);
+      setWorkoutRoutes(workoutRoutesRes);
       // Load API key from database
       if (apiKeyData.value) setApiKey(apiKeyData.value);
       // Store all entries and find today's entry
@@ -605,6 +639,13 @@ export default function Home() {
       {/* Tabbed Content */}
       <TabContainer
         activityContent={<ActivityPanel stats={activityStats} />}
+        healthContent={
+          <HealthPanel
+            sleep={sleepData}
+            restingHR={restingHR}
+            workouts={workouts}
+          />
+        }
         insightsContent={insightsContent}
         coachContent={
           <AICoachPanel
