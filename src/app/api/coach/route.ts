@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { weights, goals, dailySteps, workouts, dailySleep, restingHeartRate, workoutRoutes } from "@/lib/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 
 const SYSTEM_PROMPT = `You are a supportive and knowledgeable weight loss coach. You have access to the user's COMPLETE weight history, activity data (steps, workouts), health metrics (resting heart rate), and current progress spanning multiple years.
 
@@ -22,6 +22,20 @@ The sleep data in this system is INCOMPLETE and NOT representative of actual sle
 - Suggest that sleep is a problem area
 - Use sleep data to explain weight changes
 The sleep data should be IGNORED for coaching purposes.
+
+RECOVERY METRICS - HEART RATE VARIABILITY (HRV):
+You have access to HRV data (SDNN measurement in milliseconds). HRV is a key indicator of recovery, stress, and autonomic nervous system balance:
+- Higher HRV generally indicates better recovery, lower stress, and good cardiovascular health
+- Declining HRV may suggest overtraining, inadequate recovery, high stress, or illness
+- HRV trends are more meaningful than single-day values
+- Use HRV to guide recommendations about rest days, activity intensity, and recovery focus
+
+When discussing HRV with the user:
+- DO interpret trends naturally ("Your recovery metrics suggest...", "Your body is showing good adaptation...")
+- DO use HRV to recommend rest vs. activity ("Your recovery looks strong - good time to push", "Your recovery metrics suggest taking it easier today")
+- DON'T display raw HRV numbers unless specifically asked
+- DON'T over-emphasize daily fluctuations - focus on weekly trends
+- Consider HRV alongside resting heart rate for a complete recovery picture
 
 Your role is to:
 1. Provide personalized, actionable advice based on their specific data
@@ -45,6 +59,7 @@ Guidelines:
 - Reference their actual activity data when giving advice
 - When discussing their journey, acknowledge the surgery as a tool that requires ongoing lifestyle commitment
 - Use resting heart rate trends as an indicator of fitness level and recovery
+- Use HRV trends to guide recovery recommendations and activity intensity advice
 - IGNORE sleep data entirely - it is incomplete and not useful for analysis`;
 
 interface ChatMessage {
@@ -70,6 +85,14 @@ export async function POST(request: Request) {
     const allSleep = await db.select().from(dailySleep).orderBy(dailySleep.date);
     const allRestingHR = await db.select().from(restingHeartRate).orderBy(restingHeartRate.date);
     const allRoutes = await db.select().from(workoutRoutes).orderBy(workoutRoutes.date);
+
+    // Fetch HRV data from heart_rate_variability table
+    const allHRV = await db.all(sql`
+      SELECT date, hrv_sdnn_ms, source, created_at
+      FROM heart_rate_variability
+      ORDER BY date
+    `) as Array<{ date: string; hrv_sdnn_ms: number; source: string; created_at: string }>;
+
     const activeGoal = await db
       .select()
       .from(goals)
@@ -107,6 +130,11 @@ export async function POST(request: Request) {
       .map(h => `${h.date}:${h.bpm}`)
       .join("|");
 
+    // Format HRV data compactly (date:sdnn_ms)
+    const hrvHistory = allHRV
+      .map(h => `${h.date}:${h.hrv_sdnn_ms}`)
+      .join("|");
+
     // Format workout routes compactly (date:type:mins:km:gpsPoints)
     const routesHistory = allRoutes
       .map(r => {
@@ -135,6 +163,43 @@ export async function POST(request: Request) {
       ? Math.round(recentHR.reduce((a, b) => a + b.bpm, 0) / recentHR.length)
       : "N/A";
 
+    // Calculate HRV statistics and trends
+    const recentHRV = allHRV.filter(h => h.date >= thirtyDaysAgo);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+    const hrvLast7Days = allHRV.filter(h => h.date >= sevenDaysAgo);
+    const hrvPrev7Days = allHRV.filter(h => h.date >= fourteenDaysAgo && h.date < sevenDaysAgo);
+
+    const avgHRVLast7 = hrvLast7Days.length > 0
+      ? Math.round(hrvLast7Days.reduce((a, b) => a + b.hrv_sdnn_ms, 0) / hrvLast7Days.length)
+      : null;
+
+    const avgHRVPrev7 = hrvPrev7Days.length > 0
+      ? Math.round(hrvPrev7Days.reduce((a, b) => a + b.hrv_sdnn_ms, 0) / hrvPrev7Days.length)
+      : null;
+
+    let hrvTrend = "stable";
+    let hrvTrendDescription = "";
+    if (avgHRVLast7 !== null && avgHRVPrev7 !== null) {
+      const hrvChange = avgHRVLast7 - avgHRVPrev7;
+      const hrvChangePercent = (hrvChange / avgHRVPrev7) * 100;
+
+      if (hrvChangePercent > 5) {
+        hrvTrend = "improving";
+        hrvTrendDescription = `up ${hrvChangePercent.toFixed(0)}% (${avgHRVPrev7}ms → ${avgHRVLast7}ms)`;
+      } else if (hrvChangePercent < -5) {
+        hrvTrend = "declining";
+        hrvTrendDescription = `down ${Math.abs(hrvChangePercent).toFixed(0)}% (${avgHRVPrev7}ms → ${avgHRVLast7}ms)`;
+      } else {
+        hrvTrendDescription = `stable around ${avgHRVLast7}ms`;
+      }
+    } else if (avgHRVLast7 !== null) {
+      hrvTrendDescription = `current average: ${avgHRVLast7}ms (insufficient data for trend)`;
+    } else {
+      hrvTrendDescription = "insufficient data";
+    }
+
     const walkingWorkouts = allWorkouts.filter(w => w.activityType === "walking");
     const totalWalkingKm = walkingWorkouts.reduce((a, b) => a + (b.distanceKm || 0), 0);
 
@@ -149,11 +214,11 @@ export async function POST(request: Request) {
       .join(", ");
 
     // Yearly summaries for quick reference
-    const yearlyStats: Record<string, { avgWeight: number; weightCount: number; totalSteps: number; totalWorkouts: number; walkingKm: number; avgSleep: number; sleepCount: number; avgHR: number; hrCount: number }> = {};
+    const yearlyStats: Record<string, { avgWeight: number; weightCount: number; totalSteps: number; totalWorkouts: number; walkingKm: number; avgSleep: number; sleepCount: number; avgHR: number; hrCount: number; avgHRV: number; hrvCount: number }> = {};
     for (const w of allWeights) {
       const year = w.date.slice(0, 4);
       if (!yearlyStats[year]) {
-        yearlyStats[year] = { avgWeight: 0, weightCount: 0, totalSteps: 0, totalWorkouts: 0, walkingKm: 0, avgSleep: 0, sleepCount: 0, avgHR: 0, hrCount: 0 };
+        yearlyStats[year] = { avgWeight: 0, weightCount: 0, totalSteps: 0, totalWorkouts: 0, walkingKm: 0, avgSleep: 0, sleepCount: 0, avgHR: 0, hrCount: 0, avgHRV: 0, hrvCount: 0 };
       }
       yearlyStats[year].avgWeight += w.weightKg;
       yearlyStats[year].weightCount++;
@@ -187,6 +252,13 @@ export async function POST(request: Request) {
         yearlyStats[year].hrCount++;
       }
     }
+    for (const h of allHRV) {
+      const year = h.date.slice(0, 4);
+      if (yearlyStats[year]) {
+        yearlyStats[year].avgHRV += h.hrv_sdnn_ms;
+        yearlyStats[year].hrvCount++;
+      }
+    }
 
     // Calculate averages
     for (const year of Object.keys(yearlyStats)) {
@@ -194,6 +266,7 @@ export async function POST(request: Request) {
       s.avgWeight = s.weightCount > 0 ? Math.round(s.avgWeight / s.weightCount * 10) / 10 : 0;
       s.avgSleep = s.sleepCount > 0 ? Math.round(s.avgSleep / s.sleepCount * 10) / 10 : 0;
       s.avgHR = s.hrCount > 0 ? Math.round(s.avgHR / s.hrCount) : 0;
+      s.avgHRV = s.hrvCount > 0 ? Math.round(s.avgHRV / s.hrvCount) : 0;
     }
 
     const yearlySummary = Object.entries(yearlyStats)
@@ -201,7 +274,8 @@ export async function POST(request: Request) {
       .map(([year, stats]) =>
         `${year}: avgWeight=${stats.avgWeight}kg, steps=${Math.round(stats.totalSteps/1000)}k, workouts=${stats.totalWorkouts}, walkingKm=${Math.round(stats.walkingKm)}` +
         (stats.avgSleep > 0 ? `, avgSleep=${stats.avgSleep}h` : "") +
-        (stats.avgHR > 0 ? `, avgHR=${stats.avgHR}bpm` : "")
+        (stats.avgHR > 0 ? `, avgHR=${stats.avgHR}bpm` : "") +
+        (stats.avgHRV > 0 ? `, avgHRV=${stats.avgHRV}ms` : "")
       )
       .join("\n");
 
@@ -214,9 +288,21 @@ Goal: ${activeGoal[0] ? `${activeGoal[0].targetWeight}kg (${(current.weightKg - 
 
 Last 30 days: Avg ${avgStepsLast30.toLocaleString()} steps/day, ${recentWorkouts.length} workouts, Avg sleep ${avgSleepLast30}h, Avg resting HR ${avgHRLast30}bpm
 
-All-time: ${allWeights.length} weigh-ins, ${allSteps.length} step days, ${allWorkouts.length} workouts, ${allSleep.length} sleep nights, ${allRestingHR.length} HR readings, ${allRoutes.length} GPS routes
+All-time: ${allWeights.length} weigh-ins, ${allSteps.length} step days, ${allWorkouts.length} workouts, ${allSleep.length} sleep nights, ${allRestingHR.length} HR readings, ${allHRV.length} HRV readings, ${allRoutes.length} GPS routes
 Total walking: ${Math.round(totalWalkingKm)}km across ${walkingWorkouts.length} sessions
 Workout types: ${workoutBreakdown}
+
+=== RECOVERY METRICS (HRV) ===
+Current 7-day average: ${avgHRVLast7 !== null ? avgHRVLast7 + 'ms' : 'N/A'} (SDNN)
+Previous 7-day average: ${avgHRVPrev7 !== null ? avgHRVPrev7 + 'ms' : 'N/A'}
+Trend: ${hrvTrend} (${hrvTrendDescription})
+
+HRV Context for coaching:
+- Higher HRV generally indicates better recovery and lower stress
+- Declining HRV may suggest overtraining, poor sleep, illness, or high stress
+- Use HRV trends to recommend rest days or suggest recovery focus
+- Don't display raw HRV numbers to user - interpret them naturally (e.g., "Your recovery metrics suggest...")
+- Combine HRV insights with resting heart rate for comprehensive recovery assessment
 
 === YEARLY OVERVIEW ===
 ${yearlySummary}
@@ -240,6 +326,10 @@ ${sleepHistory}
 === COMPLETE RESTING HEART RATE HISTORY (${allRestingHR.length} entries) ===
 Format: date:bpm|date:bpm|...
 ${restingHRHistory}
+
+=== COMPLETE HRV HISTORY (${allHRV.length} entries) ===
+Format: date:sdnn_ms|date:sdnn_ms|...
+${hrvHistory}
 
 === GPS-TRACKED WORKOUT ROUTES (${allRoutes.length} entries) ===
 Format: date:type:minutes:km:gpsPoints|...
@@ -294,6 +384,7 @@ ${routesHistory}
           workouts: allWorkouts.length,
           sleep: allSleep.length,
           restingHR: allRestingHR.length,
+          hrv: allHRV.length,
           routes: allRoutes.length,
         },
       },

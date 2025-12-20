@@ -1,7 +1,7 @@
 /**
  * Import health data from Apple Health export XML
  * Imports: weight, daily steps, workouts, sleep, resting heart rate, workout routes,
- *          body composition, VO2Max, flights climbed
+ *          body composition, VO2Max, flights climbed, heart rate variability
  *
  * Usage: npx tsx scripts/import-apple-health.ts [/path/to/export.xml]
  * Default: imports/apple_health_export/export.xml
@@ -155,6 +155,16 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_vo2max_date ON vo2max(date);
+
+  CREATE TABLE IF NOT EXISTS heart_rate_variability (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL UNIQUE,
+    hrv_sdnn_ms REAL NOT NULL,
+    source TEXT DEFAULT 'apple_health',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_hrv_date ON heart_rate_variability(date);
 `);
 
 // Add calories column to workouts if it doesn't exist
@@ -228,6 +238,11 @@ const insertVO2Max = db.prepare(`
   VALUES (?, ?, 'apple_health', datetime('now'))
 `);
 
+const insertHRV = db.prepare(`
+  INSERT OR REPLACE INTO heart_rate_variability (date, hrv_sdnn_ms, source, created_at)
+  VALUES (?, ?, 'apple_health', datetime('now'))
+`);
+
 const updateFlightsClimbed = db.prepare(`
   UPDATE daily_steps SET flights_climbed = ? WHERE date = ?
 `);
@@ -244,6 +259,7 @@ const bodyFatRegex = /type="HKQuantityTypeIdentifierBodyFatPercentage"[^>]*start
 const leanMassRegex = /type="HKQuantityTypeIdentifierLeanBodyMass"[^>]*unit="kg"[^>]*startDate="([^"]+)"[^>]*value="([^"]+)"/;
 const vo2maxRegex = /type="HKQuantityTypeIdentifierVO2Max"[^>]*startDate="([^"]+)"[^>]*value="([^"]+)"/;
 const flightsClimbedRegex = /type="HKQuantityTypeIdentifierFlightsClimbed"[^>]*startDate="([^"]+)"[^>]*value="([^"]+)"/;
+const hrvRegex = /type="HKQuantityTypeIdentifierHeartRateVariabilitySDNN"[^>]*startDate="([^"]+)"[^>]*value="([^"]+)"/;
 
 // Data collections
 const weights: { date: string; weight: number; source: string }[] = [];
@@ -260,6 +276,8 @@ const bodyCompByDate: Map<string, { fat: number; lean: number }> = new Map();
 const vo2maxByDate: Map<string, number> = new Map();
 // Flights climbed by date (sum per day)
 const flightsByDate: Map<string, number> = new Map();
+// HRV by date (keep all values to average later)
+const hrvByDate: Map<string, number[]> = new Map();
 
 let currentWorkout: { date: string; type: string; duration: number; distance: number | null; calories: number | null } | null = null;
 let weightCount = 0;
@@ -270,6 +288,7 @@ let restingHRCount = 0;
 let bodyCompCount = 0;
 let vo2maxCount = 0;
 let flightsCount = 0;
+let hrvCount = 0;
 
 const rl = createInterface({
   input: createReadStream(xmlPath),
@@ -452,6 +471,21 @@ rl.on("line", (line) => {
       flightsCount++;
     }
   }
+
+  // Parse HRV SDNN (aggregate by date, average all readings)
+  if (line.includes("HKQuantityTypeIdentifierHeartRateVariabilitySDNN")) {
+    const match = line.match(hrvRegex);
+    if (match) {
+      const [, startDateStr, valueStr] = match;
+      const date = startDateStr.split(" ")[0];
+      const hrvMs = parseFloat(valueStr);
+      if (!hrvByDate.has(date)) {
+        hrvByDate.set(date, []);
+      }
+      hrvByDate.get(date)!.push(hrvMs);
+      hrvCount++;
+    }
+  }
 });
 
 rl.on("close", () => {
@@ -528,6 +562,7 @@ rl.on("close", () => {
   console.log(`  - ${bodyCompCount} body composition records from ${bodyCompByDate.size} unique days`);
   console.log(`  - ${vo2maxCount} VO2Max records from ${vo2maxByDate.size} unique days`);
   console.log(`  - ${flightsCount} flights climbed records from ${flightsByDate.size} unique days`);
+  console.log(`  - ${hrvCount} HRV records from ${hrvByDate.size} unique days`);
   console.log(`  - ${workoutRoutes.length} workout routes with GPS data`);
   console.log(`  - (Using max single-source steps per day to avoid double-counting)`);
 
@@ -601,6 +636,12 @@ rl.on("close", () => {
     for (const [date, flights] of flightsByDate) {
       updateFlightsClimbed.run(flights, date);
     }
+
+    // Insert HRV (average all readings per day)
+    for (const [date, readings] of hrvByDate) {
+      const avgHrv = readings.reduce((a, b) => a + b, 0) / readings.length;
+      insertHRV.run(date, Math.round(avgHrv * 10) / 10);
+    }
   });
 
   insertAll();
@@ -617,6 +658,7 @@ rl.on("close", () => {
   console.log(`  - ${validBodyComp} body composition days`);
   console.log(`  - ${vo2maxByDate.size} VO2Max days`);
   console.log(`  - ${flightsByDate.size} days with flights climbed`);
+  console.log(`  - ${hrvByDate.size} HRV days`);
   console.log(`  - ${workoutRoutes.length} workout routes`);
 
   // Show date ranges

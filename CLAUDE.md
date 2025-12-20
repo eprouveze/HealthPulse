@@ -56,6 +56,7 @@ Apple Health XML → scripts/import-apple-health.ts → SQLite (weight-tracker.d
 - `workout_routes` - GPS routes (JSON array of lat/lon points)
 - `body_composition` - Body fat %, lean body mass (from MASARU scale)
 - `vo2max` - VO2Max cardiovascular fitness (mL/kg/min)
+- `heart_rate_variability` - HRV SDNN for AI Coach recovery analysis (not displayed)
 - `settings` - Key-value store (API key stored as `anthropic_api_key`)
 
 ### Key API Routes
@@ -70,6 +71,7 @@ Apple Health XML → scripts/import-apple-health.ts → SQLite (weight-tracker.d
 | `/api/sleep`, `/api/resting-hr`, `/api/workout-routes` | Health metrics |
 | `/api/body-composition` | Body fat % and lean body mass |
 | `/api/vo2max` | VO2Max cardiovascular fitness |
+| `/api/hrv` | HRV stats for AI Coach (internal use) |
 | `/api/settings` | Key-value settings (API key) |
 
 ### Main Dashboard (src/app/page.tsx)
@@ -83,11 +85,11 @@ The import script (`scripts/import-apple-health.ts`):
 - Also reads: `imports/apple_health_export/workout-routes/*.gpx`
 - Creates automatic backup before import (in `backups/`)
 - Deduplicates data from multiple devices (iPhone + Watch)
-- Imports: weights, steps, workouts (with calories), sleep, resting HR, GPS routes, body composition, VO2Max, flights climbed
+- Imports: weights, steps, workouts (with calories), sleep, resting HR, GPS routes, body composition, VO2Max, flights climbed, HRV
 
 **Import data safety:**
 - ✅ Safe (never touched): `settings`, `goals`, `entries`
-- ⚠️ Upserted by date: `weights`, `daily_steps`, `daily_sleep`, `resting_heart_rate`, `body_composition`, `vo2max`
+- ⚠️ Upserted by date: `weights`, `daily_steps`, `daily_sleep`, `resting_heart_rate`, `body_composition`, `vo2max`, `heart_rate_variability`
 - ✅ Insert-only: `workouts`, `workout_routes` (duplicates ignored)
 
 ### Chart Component (src/components/weight-activity-chart.tsx)
