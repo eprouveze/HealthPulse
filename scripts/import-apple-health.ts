@@ -1,6 +1,7 @@
 /**
  * Import health data from Apple Health export XML
- * Imports: weight, daily steps, workouts, sleep, resting heart rate, workout routes
+ * Imports: weight, daily steps, workouts, sleep, resting heart rate, workout routes,
+ *          body composition, VO2Max, flights climbed
  *
  * Usage: npx tsx scripts/import-apple-health.ts [/path/to/export.xml]
  * Default: imports/apple_health_export/export.xml
@@ -132,7 +133,43 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_workout_routes_date ON workout_routes(date);
+
+  CREATE TABLE IF NOT EXISTS body_composition (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL UNIQUE,
+    body_fat_percentage REAL NOT NULL,
+    lean_body_mass_kg REAL NOT NULL,
+    bmi REAL,
+    source TEXT DEFAULT 'masaru',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_body_composition_date ON body_composition(date);
+
+  CREATE TABLE IF NOT EXISTS vo2max (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL UNIQUE,
+    vo2max REAL NOT NULL,
+    source TEXT DEFAULT 'apple_health',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_vo2max_date ON vo2max(date);
 `);
+
+// Add calories column to workouts if it doesn't exist
+try {
+  db.exec(`ALTER TABLE workouts ADD COLUMN calories_kcal REAL`);
+} catch (e) {
+  // Column already exists, ignore
+}
+
+// Add flights_climbed column to daily_steps if it doesn't exist
+try {
+  db.exec(`ALTER TABLE daily_steps ADD COLUMN flights_climbed INTEGER DEFAULT 0`);
+} catch (e) {
+  // Column already exists, ignore
+}
 
 // Prepare insert statements
 const insertWeight = db.prepare(`
@@ -151,8 +188,8 @@ const insertSteps = db.prepare(`
 `);
 
 const insertWorkout = db.prepare(`
-  INSERT OR IGNORE INTO workouts (date, activity_type, duration_minutes, distance_km, source, created_at)
-  VALUES (?, ?, ?, ?, 'apple_health', datetime('now'))
+  INSERT OR IGNORE INTO workouts (date, activity_type, duration_minutes, distance_km, calories_kcal, source, created_at)
+  VALUES (?, ?, ?, ?, ?, 'apple_health', datetime('now'))
 `);
 
 // Add unique constraint to workouts if not exists
@@ -181,30 +218,58 @@ db.exec(`
   ON workout_routes(date, activity_type, duration_minutes)
 `);
 
+const insertBodyComp = db.prepare(`
+  INSERT OR REPLACE INTO body_composition (date, body_fat_percentage, lean_body_mass_kg, source, created_at)
+  VALUES (?, ?, ?, 'masaru', datetime('now'))
+`);
+
+const insertVO2Max = db.prepare(`
+  INSERT OR REPLACE INTO vo2max (date, vo2max, source, created_at)
+  VALUES (?, ?, 'apple_health', datetime('now'))
+`);
+
+const updateFlightsClimbed = db.prepare(`
+  UPDATE daily_steps SET flights_climbed = ? WHERE date = ?
+`);
+
 // Regex patterns
 const weightRegex = /type="HKQuantityTypeIdentifierBodyMass"[^>]*unit="kg"[^>]*startDate="([^"]+)"[^>]*value="([^"]+)"/;
 const stepRegex = /type="HKQuantityTypeIdentifierStepCount"[^>]*sourceName="([^"]*)"[^>]*startDate="([^"]+)"[^>]*value="([^"]+)"/;
 const workoutRegex = /workoutActivityType="([^"]+)"[^>]*duration="([^"]+)"[^>]*startDate="([^"]+)"/;
 const distanceRegex = /type="HKQuantityTypeIdentifierDistanceWalkingRunning"[^>]*sum="([^"]+)"/;
+const caloriesRegex = /type="HKQuantityTypeIdentifierActiveEnergyBurned"[^>]*sum="([^"]+)"/;
 const sleepRegex = /type="HKCategoryTypeIdentifierSleepAnalysis"[^>]*startDate="([^"]+)"[^>]*endDate="([^"]+)"[^>]*value="([^"]+)"/;
 const restingHRRegex = /type="HKQuantityTypeIdentifierRestingHeartRate"[^>]*startDate="([^"]+)"[^>]*value="([^"]+)"/;
+const bodyFatRegex = /type="HKQuantityTypeIdentifierBodyFatPercentage"[^>]*startDate="([^"]+)"[^>]*value="([^"]+)"/;
+const leanMassRegex = /type="HKQuantityTypeIdentifierLeanBodyMass"[^>]*unit="kg"[^>]*startDate="([^"]+)"[^>]*value="([^"]+)"/;
+const vo2maxRegex = /type="HKQuantityTypeIdentifierVO2Max"[^>]*startDate="([^"]+)"[^>]*value="([^"]+)"/;
+const flightsClimbedRegex = /type="HKQuantityTypeIdentifierFlightsClimbed"[^>]*startDate="([^"]+)"[^>]*value="([^"]+)"/;
 
 // Data collections
 const weights: { date: string; weight: number; source: string }[] = [];
 // Track steps by date AND source to avoid double-counting from multiple devices
 const stepsByDateAndSource: Map<string, Map<string, number>> = new Map(); // date -> (source -> steps)
-const workouts: { date: string; type: string; duration: number; distance: number | null }[] = [];
+const workouts: { date: string; type: string; duration: number; distance: number | null; calories: number | null }[] = [];
 // Sleep records by night (keyed by end date)
 const sleepByDate: Map<string, { start: string; end: string; inBedMins: number; asleepMins: number }> = new Map();
 // Resting heart rate by date
 const restingHRByDate: Map<string, number> = new Map();
+// Body composition by date
+const bodyCompByDate: Map<string, { fat: number; lean: number }> = new Map();
+// VO2Max by date (keep latest value per day)
+const vo2maxByDate: Map<string, number> = new Map();
+// Flights climbed by date (sum per day)
+const flightsByDate: Map<string, number> = new Map();
 
-let currentWorkout: { date: string; type: string; duration: number; distance: number | null } | null = null;
+let currentWorkout: { date: string; type: string; duration: number; distance: number | null; calories: number | null } | null = null;
 let weightCount = 0;
 let stepCount = 0;
 let workoutCount = 0;
 let sleepCount = 0;
 let restingHRCount = 0;
+let bodyCompCount = 0;
+let vo2maxCount = 0;
+let flightsCount = 0;
 
 const rl = createInterface({
   input: createReadStream(xmlPath),
@@ -263,7 +328,7 @@ rl.on("line", (line) => {
         "HKWorkoutActivityTypeOther": "other",
       };
       const type = typeMap[activityType] || activityType.replace("HKWorkoutActivityType", "").toLowerCase();
-      currentWorkout = { date, type, duration, distance: null };
+      currentWorkout = { date, type, duration, distance: null, calories: null };
       workoutCount++;
     }
   }
@@ -273,6 +338,14 @@ rl.on("line", (line) => {
     const match = line.match(distanceRegex);
     if (match) {
       currentWorkout.distance = parseFloat(match[1]);
+    }
+  }
+
+  // Parse workout calories (appears in WorkoutStatistics after Workout)
+  if (currentWorkout && line.includes("WorkoutStatistics") && line.includes("ActiveEnergyBurned")) {
+    const match = line.match(caloriesRegex);
+    if (match) {
+      currentWorkout.calories = Math.round(parseFloat(match[1]));
     }
   }
 
@@ -323,6 +396,60 @@ rl.on("line", (line) => {
       // Keep latest value for the day
       restingHRByDate.set(date, bpm);
       restingHRCount++;
+    }
+  }
+
+  // Parse body fat percentage (convert from 0.326 to 32.6%)
+  if (line.includes("HKQuantityTypeIdentifierBodyFatPercentage")) {
+    const match = line.match(bodyFatRegex);
+    if (match) {
+      const [, startDateStr, valueStr] = match;
+      const date = startDateStr.split(" ")[0];
+      const fatPct = parseFloat(valueStr) * 100; // Convert to percentage
+      if (!bodyCompByDate.has(date)) {
+        bodyCompByDate.set(date, { fat: 0, lean: 0 });
+      }
+      bodyCompByDate.get(date)!.fat = fatPct;
+      bodyCompCount++;
+    }
+  }
+
+  // Parse lean body mass
+  if (line.includes("HKQuantityTypeIdentifierLeanBodyMass") && line.includes('unit="kg"')) {
+    const match = line.match(leanMassRegex);
+    if (match) {
+      const [, startDateStr, valueStr] = match;
+      const date = startDateStr.split(" ")[0];
+      const leanKg = parseFloat(valueStr);
+      if (!bodyCompByDate.has(date)) {
+        bodyCompByDate.set(date, { fat: 0, lean: 0 });
+      }
+      bodyCompByDate.get(date)!.lean = leanKg;
+    }
+  }
+
+  // Parse VO2Max (keep latest value per day)
+  if (line.includes("HKQuantityTypeIdentifierVO2Max")) {
+    const match = line.match(vo2maxRegex);
+    if (match) {
+      const [, startDateStr, valueStr] = match;
+      const date = startDateStr.split(" ")[0];
+      const vo2max = parseFloat(valueStr);
+      // Keep latest value for the day
+      vo2maxByDate.set(date, vo2max);
+      vo2maxCount++;
+    }
+  }
+
+  // Parse Flights Climbed (sum per day)
+  if (line.includes("HKQuantityTypeIdentifierFlightsClimbed")) {
+    const match = line.match(flightsClimbedRegex);
+    if (match) {
+      const [, startDateStr, valueStr] = match;
+      const date = startDateStr.split(" ")[0];
+      const flights = parseInt(valueStr, 10);
+      flightsByDate.set(date, (flightsByDate.get(date) || 0) + flights);
+      flightsCount++;
     }
   }
 });
@@ -398,6 +525,9 @@ rl.on("close", () => {
   console.log(`  - ${workoutCount} workout records`);
   console.log(`  - ${sleepCount} sleep records from ${sleepByDate.size} unique nights`);
   console.log(`  - ${restingHRCount} resting HR records from ${restingHRByDate.size} unique days`);
+  console.log(`  - ${bodyCompCount} body composition records from ${bodyCompByDate.size} unique days`);
+  console.log(`  - ${vo2maxCount} VO2Max records from ${vo2maxByDate.size} unique days`);
+  console.log(`  - ${flightsCount} flights climbed records from ${flightsByDate.size} unique days`);
   console.log(`  - ${workoutRoutes.length} workout routes with GPS data`);
   console.log(`  - (Using max single-source steps per day to avoid double-counting)`);
 
@@ -432,7 +562,7 @@ rl.on("close", () => {
 
     // Insert workouts
     for (const workout of workouts) {
-      insertWorkout.run(workout.date, workout.type, workout.duration, workout.distance);
+      insertWorkout.run(workout.date, workout.type, workout.duration, workout.distance, workout.calories);
     }
 
     // Insert sleep data
@@ -449,13 +579,34 @@ rl.on("close", () => {
       insertRestingHR.run(date, bpm);
     }
 
+    // Insert body composition
+    for (const [date, comp] of bodyCompByDate) {
+      // Only insert if we have both fat and lean measurements
+      if (comp.fat > 0 && comp.lean > 0) {
+        insertBodyComp.run(date, comp.fat, comp.lean);
+      }
+    }
+
     // Insert workout routes
     for (const route of workoutRoutes) {
       insertWorkoutRoute.run(route.date, route.type, route.duration, route.distance, route.routeData);
     }
+
+    // Insert VO2Max
+    for (const [date, vo2max] of vo2maxByDate) {
+      insertVO2Max.run(date, vo2max);
+    }
+
+    // Update flights climbed on existing daily_steps records
+    for (const [date, flights] of flightsByDate) {
+      updateFlightsClimbed.run(flights, date);
+    }
   });
 
   insertAll();
+
+  // Count valid body composition entries
+  const validBodyComp = Array.from(bodyCompByDate.values()).filter(c => c.fat > 0 && c.lean > 0).length;
 
   console.log(`\nImported:`);
   console.log(`  - ${weightInserts.length} weight days`);
@@ -463,6 +614,9 @@ rl.on("close", () => {
   console.log(`  - ${workouts.length} workouts`);
   console.log(`  - ${sleepByDate.size} sleep nights`);
   console.log(`  - ${restingHRByDate.size} resting HR days`);
+  console.log(`  - ${validBodyComp} body composition days`);
+  console.log(`  - ${vo2maxByDate.size} VO2Max days`);
+  console.log(`  - ${flightsByDate.size} days with flights climbed`);
   console.log(`  - ${workoutRoutes.length} workout routes`);
 
   // Show date ranges

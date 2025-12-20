@@ -13,9 +13,10 @@ interface ActivityStats {
   stepsStreak: number;
   activeMinutesThisWeek: number;
   activeMinutesLastWeek: number;
+  totalFlights?: number;
   correlations: { type: "positive" | "negative" | "neutral"; message: string; detail?: string }[];
   workoutsByType: { type: string; count: number; totalMinutes: number; totalKm: number }[];
-  recentWorkouts: { date: string; type: string; duration: number; distance: number | null }[];
+  recentWorkouts: { date: string; type: string; duration: number; distance: number | null; calories?: number | null }[];
   recentSteps: { date: string; steps: number }[];
 }
 
@@ -108,6 +109,19 @@ export function ActivityPanel({ stats }: ActivityPanelProps) {
             <p className="text-xs text-muted-foreground">days 5k+ steps</p>
           </CardContent>
         </Card>
+
+        {stats.totalFlights !== undefined && stats.totalFlights > 0 && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                <TrendingUp className="h-4 w-4" />
+                Flights Climbed
+              </div>
+              <p className="text-2xl font-bold mt-1">{stats.totalFlights.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">total flights</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Correlations & Insights */}
@@ -190,6 +204,11 @@ export function ActivityPanel({ stats }: ActivityPanelProps) {
                     <span className="flex items-center gap-1">
                       <MapPin className="h-3 w-3" />
                       {workout.distance} km
+                    </span>
+                  )}
+                  {workout.calories && (
+                    <span>
+                      {Math.round(workout.calories)} kcal
                     </span>
                   )}
                 </div>

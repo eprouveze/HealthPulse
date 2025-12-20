@@ -41,6 +41,10 @@ interface HealthPanelProps {
   sleep: SleepData[];
   restingHR: RestingHRData[];
   workouts: WorkoutData[];
+  vo2max: {
+    current: { date: string; vo2max: number } | null;
+    prev30: { vo2max: number } | null;
+  };
 }
 
 type TimeSpan = "30d" | "90d" | "1y" | "3y" | "5y" | "10y" | "all";
@@ -127,7 +131,7 @@ function loadPreferences(): HealthPreferences {
   return { timeSpan: "90d", precision: "day" };
 }
 
-export function HealthPanel({ sleep, restingHR, workouts }: HealthPanelProps) {
+export function HealthPanel({ sleep, restingHR, workouts, vo2max }: HealthPanelProps) {
   const [timeSpan, setTimeSpan] = useState<TimeSpan>("90d");
   const [precision, setPrecision] = useState<Precision>("day");
   const [loaded, setLoaded] = useState(false);
@@ -279,7 +283,7 @@ export function HealthPanel({ sleep, restingHR, workouts }: HealthPanelProps) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-indigo-50 rounded-lg p-4">
           <div className="flex items-center gap-2 text-indigo-600 mb-1">
             <Moon className="h-4 w-4" />
@@ -305,6 +309,22 @@ export function HealthPanel({ sleep, restingHR, workouts }: HealthPanelProps) {
           <p className="text-2xl font-bold text-green-700">{totalWorkoutKm.toFixed(0)} km</p>
           <p className="text-xs text-green-500">{filteredWorkouts.length} workouts</p>
         </div>
+        {vo2max.current && (
+          <div className="bg-purple-50 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-purple-600 mb-1">
+              <Heart className="h-4 w-4" />
+              <span className="text-sm font-medium">VO2 Max</span>
+            </div>
+            <p className="text-2xl font-bold text-purple-700">{vo2max.current.vo2max.toFixed(1)}</p>
+            <p className="text-xs text-purple-500">mL/kg/min</p>
+            {vo2max.prev30 && (
+              <p className={`text-xs mt-1 ${vo2max.current.vo2max > vo2max.prev30.vo2max ? 'text-green-600' : 'text-red-600'}`}>
+                {vo2max.current.vo2max > vo2max.prev30.vo2max ? '↑' : '↓'}
+                {Math.abs(vo2max.current.vo2max - vo2max.prev30.vo2max).toFixed(1)} (30d)
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Combined Chart */}

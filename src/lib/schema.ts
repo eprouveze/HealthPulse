@@ -29,6 +29,7 @@ export const dailySteps = sqliteTable("daily_steps", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   date: text("date").notNull().unique(), // One entry per day
   stepCount: integer("step_count").notNull(),
+  flightsClimbed: integer("flights_climbed").default(0),
   source: text("source").default("apple_health"),
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
@@ -39,6 +40,7 @@ export const workouts = sqliteTable("workouts", {
   activityType: text("activity_type").notNull(), // walking, cycling, running, etc.
   durationMinutes: real("duration_minutes").notNull(),
   distanceKm: real("distance_km"),
+  caloriesKcal: real("calories_kcal"),
   source: text("source").default("apple_health"),
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
@@ -79,6 +81,24 @@ export const workoutRoutes = sqliteTable("workout_routes", {
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
+export const bodyComposition = sqliteTable("body_composition", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  date: text("date").notNull().unique(),
+  bodyFatPercentage: real("body_fat_percentage").notNull(),
+  leanBodyMassKg: real("lean_body_mass_kg").notNull(),
+  bmi: real("bmi"),
+  source: text("source").default("masaru"),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+export const vo2max = sqliteTable("vo2max", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  date: text("date").notNull().unique(),
+  vo2max: real("vo2max").notNull(),
+  source: text("source").default("apple_health"),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
 // Types
 export type Weight = typeof weights.$inferSelect;
 export type NewWeight = typeof weights.$inferInsert;
@@ -96,3 +116,7 @@ export type RestingHeartRate = typeof restingHeartRate.$inferSelect;
 export type NewRestingHeartRate = typeof restingHeartRate.$inferInsert;
 export type WorkoutRoute = typeof workoutRoutes.$inferSelect;
 export type NewWorkoutRoute = typeof workoutRoutes.$inferInsert;
+export type BodyComposition = typeof bodyComposition.$inferSelect;
+export type NewBodyComposition = typeof bodyComposition.$inferInsert;
+export type VO2Max = typeof vo2max.$inferSelect;
+export type NewVO2Max = typeof vo2max.$inferInsert;

@@ -49,11 +49,13 @@ Apple Health XML → scripts/import-apple-health.ts → SQLite (weight-tracker.d
 - `weights` - Weight entries (date, kg, source)
 - `goals` - Target weights
 - `entries` - Daily check-ins (notes, energy, fasting)
-- `daily_steps` - Aggregated step counts per day
-- `workouts` - Individual workout sessions (type, duration, distance)
+- `daily_steps` - Aggregated step counts per day + flights climbed
+- `workouts` - Individual workout sessions (type, duration, distance, calories)
 - `daily_sleep` - Sleep data (start, end, duration, in-bed time)
 - `resting_heart_rate` - Daily resting HR (bpm)
 - `workout_routes` - GPS routes (JSON array of lat/lon points)
+- `body_composition` - Body fat %, lean body mass (from MASARU scale)
+- `vo2max` - VO2Max cardiovascular fitness (mL/kg/min)
 - `settings` - Key-value store (API key stored as `anthropic_api_key`)
 
 ### Key API Routes
@@ -64,8 +66,10 @@ Apple Health XML → scripts/import-apple-health.ts → SQLite (weight-tracker.d
 | `/api/analysis` | Trends, milestones, insights |
 | `/api/game` | Gamification state (XP, level, badges) |
 | `/api/coach` | AI coaching via Claude API |
-| `/api/steps`, `/api/workouts`, `/api/activity-stats` | Activity data |
+| `/api/steps`, `/api/workouts`, `/api/activity-stats` | Activity data (steps, flights, calories) |
 | `/api/sleep`, `/api/resting-hr`, `/api/workout-routes` | Health metrics |
+| `/api/body-composition` | Body fat % and lean body mass |
+| `/api/vo2max` | VO2Max cardiovascular fitness |
 | `/api/settings` | Key-value settings (API key) |
 
 ### Main Dashboard (src/app/page.tsx)
@@ -79,11 +83,11 @@ The import script (`scripts/import-apple-health.ts`):
 - Also reads: `imports/apple_health_export/workout-routes/*.gpx`
 - Creates automatic backup before import (in `backups/`)
 - Deduplicates data from multiple devices (iPhone + Watch)
-- Imports: weights, steps, workouts, sleep, resting HR, GPS routes
+- Imports: weights, steps, workouts (with calories), sleep, resting HR, GPS routes, body composition, VO2Max, flights climbed
 
 **Import data safety:**
 - ✅ Safe (never touched): `settings`, `goals`, `entries`
-- ⚠️ Upserted by date: `weights`, `daily_steps`, `daily_sleep`, `resting_heart_rate`
+- ⚠️ Upserted by date: `weights`, `daily_steps`, `daily_sleep`, `resting_heart_rate`, `body_composition`, `vo2max`
 - ✅ Insert-only: `workouts`, `workout_routes` (duplicates ignored)
 
 ### Chart Component (src/components/weight-activity-chart.tsx)

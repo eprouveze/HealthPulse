@@ -10,6 +10,8 @@ interface ActivityStats {
   monthAvgSteps: number;
   totalWorkouts: number;
   walkingWorkouts: number;
+  totalCaloriesBurned: number;
+  totalFlights: number;
 
   // Trends
   stepsStreak: number;
@@ -20,11 +22,11 @@ interface ActivityStats {
   correlations: CorrelationInsight[];
 
   // Activity breakdown
-  workoutsByType: { type: string; count: number; totalMinutes: number; totalKm: number }[];
+  workoutsByType: { type: string; count: number; totalMinutes: number; totalKm: number; totalCalories: number }[];
 
   // Recent activity
-  recentWorkouts: { date: string; type: string; duration: number; distance: number | null }[];
-  recentSteps: { date: string; steps: number }[];
+  recentWorkouts: { date: string; type: string; duration: number; distance: number | null; calories: number | null }[];
+  recentSteps: { date: string; steps: number; flights?: number }[];
 }
 
 interface CorrelationInsight {
@@ -77,6 +79,11 @@ export async function GET() {
 
     const walkingWorkouts = allWorkouts.filter(w => w.activityType === "walking").length;
 
+    // Total calories burned across all workouts
+    const totalCaloriesBurned = Math.round(
+      allWorkouts.reduce((a, b) => a + (b.caloriesKcal || 0), 0)
+    );
+
     // This week's active minutes
     const thisWeekWorkouts = allWorkouts.filter(w => w.date >= weekAgo);
     const activeMinutesThisWeek = Math.round(
@@ -90,13 +97,14 @@ export async function GET() {
     );
 
     // Workout breakdown by type
-    const workoutMap = new Map<string, { count: number; totalMinutes: number; totalKm: number }>();
+    const workoutMap = new Map<string, { count: number; totalMinutes: number; totalKm: number; totalCalories: number }>();
     for (const w of allWorkouts) {
-      const existing = workoutMap.get(w.activityType) || { count: 0, totalMinutes: 0, totalKm: 0 };
+      const existing = workoutMap.get(w.activityType) || { count: 0, totalMinutes: 0, totalKm: 0, totalCalories: 0 };
       workoutMap.set(w.activityType, {
         count: existing.count + 1,
         totalMinutes: existing.totalMinutes + w.durationMinutes,
         totalKm: existing.totalKm + (w.distanceKm || 0),
+        totalCalories: existing.totalCalories + (w.caloriesKcal || 0),
       });
     }
     const workoutsByType = Array.from(workoutMap.entries())
@@ -109,12 +117,17 @@ export async function GET() {
       type: w.activityType,
       duration: Math.round(w.durationMinutes),
       distance: w.distanceKm ? Math.round(w.distanceKm * 10) / 10 : null,
+      calories: w.caloriesKcal ? Math.round(w.caloriesKcal) : null,
     }));
 
     const recentSteps = allSteps.slice(0, 14).map(s => ({
       date: s.date,
       steps: s.stepCount,
+      flights: s.flightsClimbed || 0,
     }));
+
+    // Calculate total flights climbed
+    const totalFlights = allSteps.reduce((a, b) => a + (b.flightsClimbed || 0), 0);
 
     // Calculate correlations between activity and weight changes
     const correlations = await calculateCorrelations(allSteps, allWorkouts, threeMonthsAgo);
@@ -125,6 +138,8 @@ export async function GET() {
       monthAvgSteps,
       totalWorkouts: allWorkouts.length,
       walkingWorkouts,
+      totalCaloriesBurned,
+      totalFlights,
       stepsStreak,
       activeMinutesThisWeek,
       activeMinutesLastWeek,

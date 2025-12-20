@@ -96,6 +96,7 @@ interface WorkoutData {
   activityType: string;
   durationMinutes: number;
   distanceKm: number | null;
+  caloriesKcal?: number | null;
 }
 
 interface ActivityStats {
@@ -107,6 +108,7 @@ interface ActivityStats {
   stepsStreak: number;
   activeMinutesThisWeek: number;
   activeMinutesLastWeek: number;
+  totalFlights?: number;
   correlations: { type: "positive" | "negative" | "neutral"; message: string; detail?: string }[];
   workoutsByType: { type: string; count: number; totalMinutes: number; totalKm: number }[];
   recentWorkouts: { date: string; type: string; duration: number; distance: number | null }[];
@@ -167,8 +169,43 @@ export default function Home() {
   const [dismissedMilestones, setDismissedMilestones] = useState<Set<string>>(new Set());
   const [weeklyInsight, setWeeklyInsight] = useState<string | null>(null);
   const [generatingInsight, setGeneratingInsight] = useState(false);
+  const [bodyComp, setBodyComp] = useState<{
+    current: { date: string; bodyFatPercentage: number; leanBodyMassKg: number } | null;
+    prev30: { bodyFatPercentage: number; leanBodyMassKg: number } | null;
+  }>({ current: null, prev30: null });
+  const [vo2max, setVo2max] = useState<{
+    current: { date: string; vo2max: number } | null;
+    prev30: { vo2max: number } | null;
+  }>({ current: null, prev30: null });
 
   const today = format(new Date(), "yyyy-MM-dd");
+
+  useEffect(() => {
+    fetch("/api/body-composition")
+      .then(res => res.json())
+      .then(data => {
+        if (data.length > 0) {
+          setBodyComp({
+            current: data[0],
+            prev30: data.find((d: any) => {
+              const daysDiff = Math.floor((new Date(data[0].date).getTime() - new Date(d.date).getTime()) / (1000 * 60 * 60 * 24));
+              return daysDiff >= 28 && daysDiff <= 35;
+            }) || null,
+          });
+        }
+      })
+      .catch(() => setBodyComp({ current: null, prev30: null }));
+
+    fetch("/api/vo2max")
+      .then(res => res.json())
+      .then(data => {
+        setVo2max({
+          current: data.current,
+          prev30: data.prev30,
+        });
+      })
+      .catch(() => setVo2max({ current: null, prev30: null }));
+  }, []);
 
   useEffect(() => {
     // Load dismissed milestones
@@ -567,6 +604,36 @@ export default function Home() {
         onCheckIn={() => setShowCheckin(true)}
       />
 
+      {/* Body Composition Stats */}
+      {bodyComp.current && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-sm text-muted-foreground">Body Fat</div>
+              <div className="text-2xl font-bold">{bodyComp.current.bodyFatPercentage.toFixed(1)}%</div>
+              {bodyComp.prev30 && (
+                <div className={`text-xs ${bodyComp.current.bodyFatPercentage < bodyComp.prev30.bodyFatPercentage ? 'text-green-600' : 'text-red-600'}`}>
+                  {(bodyComp.current.bodyFatPercentage - bodyComp.prev30.bodyFatPercentage) > 0 ? '+' : ''}
+                  {(bodyComp.current.bodyFatPercentage - bodyComp.prev30.bodyFatPercentage).toFixed(1)}% (30d)
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-sm text-muted-foreground">Lean Mass</div>
+              <div className="text-2xl font-bold">{bodyComp.current.leanBodyMassKg.toFixed(1)} kg</div>
+              {bodyComp.prev30 && (
+                <div className={`text-xs ${bodyComp.current.leanBodyMassKg > bodyComp.prev30.leanBodyMassKg ? 'text-green-600' : 'text-red-600'}`}>
+                  {(bodyComp.current.leanBodyMassKg - bodyComp.prev30.leanBodyMassKg) > 0 ? '+' : ''}
+                  {(bodyComp.current.leanBodyMassKg - bodyComp.prev30.leanBodyMassKg).toFixed(1)} kg (30d)
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Milestones Banner */}
       {highPriorityMilestones.length > 0 && (
         <Card className="mb-6 border-yellow-400 bg-gradient-to-r from-yellow-50 to-orange-50">
@@ -644,6 +711,7 @@ export default function Home() {
             sleep={sleepData}
             restingHR={restingHR}
             workouts={workouts}
+            vo2max={vo2max}
           />
         }
         insightsContent={insightsContent}
