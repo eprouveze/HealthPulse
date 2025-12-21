@@ -60,7 +60,16 @@ Guidelines:
 - When discussing their journey, acknowledge the surgery as a tool that requires ongoing lifestyle commitment
 - Use resting heart rate trends as an indicator of fitness level and recovery
 - Use HRV trends to guide recovery recommendations and activity intensity advice
-- IGNORE sleep data entirely - it is incomplete and not useful for analysis`;
+- IGNORE sleep data entirely - it is incomplete and not useful for analysis
+
+NUTRITION TRACKING (when active):
+When the user has an active nutrition sprint, you'll receive their food log data. Use this to:
+- Assess if calorie intake aligns with activity level and weight goals
+- Check if protein intake meets bariatric minimum (60-80g/day for post-surgery patients)
+- Identify patterns (late eating, low protein days, high calorie days)
+- Provide specific feedback on food choices for bariatric context
+- Celebrate when they hit protein goals
+- Be supportive but honest about high-calorie choices`;
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -92,6 +101,74 @@ export async function POST(request: Request) {
       FROM heart_rate_variability
       ORDER BY date
     `) as Array<{ date: string; hrv_sdnn_ms: number; source: string; created_at: string }>;
+
+    // Fetch nutrition sprint data if active
+    const activeSprints = await db.all(sql`
+      SELECT id, start_date, end_date, duration_days, is_active
+      FROM nutrition_sprints
+      WHERE is_active = 1
+      LIMIT 1
+    `) as Array<{ id: number; start_date: string; end_date: string; duration_days: number; is_active: boolean }>;
+
+    const activeSprint = activeSprints[0] || null;
+    let nutritionContext = "";
+
+    if (activeSprint) {
+      // Calculate current day of sprint
+      const startDate = new Date(activeSprint.start_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      startDate.setHours(0, 0, 0, 0);
+      const currentDay = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+      // Fetch food entries for the sprint
+      const foodEntries = await db.all(sql`
+        SELECT date, time, item, calories, protein_g, ai_estimated
+        FROM food_entries
+        WHERE sprint_id = ${activeSprint.id}
+        ORDER BY date DESC, time DESC
+      `) as Array<{ date: string; time: string; item: string; calories: number; protein_g: number | null; ai_estimated: boolean }>;
+
+      // Calculate daily totals
+      const dailyTotals: Record<string, { calories: number; protein: number; entries: string[] }> = {};
+      for (const entry of foodEntries) {
+        if (!dailyTotals[entry.date]) {
+          dailyTotals[entry.date] = { calories: 0, protein: 0, entries: [] };
+        }
+        dailyTotals[entry.date].calories += entry.calories;
+        dailyTotals[entry.date].protein += entry.protein_g || 0;
+        dailyTotals[entry.date].entries.push(`${entry.time} ${entry.item} (${Math.round(entry.calories)}kcal${entry.protein_g ? `, ${Math.round(entry.protein_g)}g protein` : ""})`);
+      }
+
+      // Format for context
+      const dailySummaries = Object.entries(dailyTotals)
+        .slice(0, 7) // Last 7 days
+        .map(([date, data]) =>
+          `${date}: ${Math.round(data.calories)}kcal, ${Math.round(data.protein)}g protein\n    Foods: ${data.entries.slice(0, 5).join(", ")}${data.entries.length > 5 ? ` (+${data.entries.length - 5} more)` : ""}`
+        )
+        .join("\n");
+
+      // Calculate averages
+      const dates = Object.keys(dailyTotals);
+      const avgCalories = dates.length > 0 ? Math.round(Object.values(dailyTotals).reduce((sum, d) => sum + d.calories, 0) / dates.length) : 0;
+      const avgProtein = dates.length > 0 ? Math.round(Object.values(dailyTotals).reduce((sum, d) => sum + d.protein, 0) / dates.length) : 0;
+
+      nutritionContext = `
+=== NUTRITION SPRINT ACTIVE (Day ${currentDay}/${activeSprint.duration_days}) ===
+Sprint period: ${activeSprint.start_date} to ${activeSprint.end_date}
+Days tracked: ${dates.length}
+Average daily intake: ${avgCalories}kcal, ${avgProtein}g protein
+Protein target for bariatric: 60-80g/day
+
+RECENT DAILY TOTALS:
+${dailySummaries}
+
+Use this data to provide nutrition-specific coaching:
+- Is protein intake adequate for post-bariatric needs?
+- Are calories appropriate for their activity level?
+- Any patterns to address (low protein days, excessive snacking, etc.)?
+`;
+    }
 
     const activeGoal = await db
       .select()
@@ -334,7 +411,7 @@ ${hrvHistory}
 === GPS-TRACKED WORKOUT ROUTES (${allRoutes.length} entries) ===
 Format: date:type:minutes:km:gpsPoints|...
 ${routesHistory}
-`;
+${nutritionContext}`;
 
     const client = new Anthropic({ apiKey });
 

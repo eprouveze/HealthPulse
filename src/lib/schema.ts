@@ -107,6 +107,27 @@ export const heartRateVariability = sqliteTable("heart_rate_variability", {
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
+export const nutritionSprints = sqliteTable("nutrition_sprints", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+  durationDays: integer("duration_days").notNull(),
+  isActive: integer("is_active", { mode: "boolean" }).default(true),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+export const foodEntries = sqliteTable("food_entries", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  sprintId: integer("sprint_id").notNull(),
+  date: text("date").notNull(),
+  time: text("time").notNull(), // HH:MM format
+  item: text("item").notNull(),
+  calories: real("calories").notNull(),
+  proteinG: real("protein_g"),
+  aiEstimated: integer("ai_estimated", { mode: "boolean" }).default(false),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
 // Types
 export type Weight = typeof weights.$inferSelect;
 export type NewWeight = typeof weights.$inferInsert;
@@ -130,3 +151,7 @@ export type VO2Max = typeof vo2max.$inferSelect;
 export type NewVO2Max = typeof vo2max.$inferInsert;
 export type HeartRateVariability = typeof heartRateVariability.$inferSelect;
 export type NewHeartRateVariability = typeof heartRateVariability.$inferInsert;
+export type NutritionSprint = typeof nutritionSprints.$inferSelect;
+export type NewNutritionSprint = typeof nutritionSprints.$inferInsert;
+export type FoodEntry = typeof foodEntries.$inferSelect;
+export type NewFoodEntry = typeof foodEntries.$inferInsert;

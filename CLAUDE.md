@@ -57,6 +57,8 @@ Apple Health XML → scripts/import-apple-health.ts → SQLite (weight-tracker.d
 - `body_composition` - Body fat %, lean body mass (from MASARU scale)
 - `vo2max` - VO2Max cardiovascular fitness (mL/kg/min)
 - `heart_rate_variability` - HRV SDNN for AI Coach recovery analysis (not displayed)
+- `nutrition_sprints` - Time-boxed food tracking periods (10/14/20 days)
+- `food_entries` - Individual food items with calories, protein, timestamp
 - `settings` - Key-value store (API key stored as `anthropic_api_key`)
 
 ### Key API Routes
@@ -72,6 +74,9 @@ Apple Health XML → scripts/import-apple-health.ts → SQLite (weight-tracker.d
 | `/api/body-composition` | Body fat % and lean body mass |
 | `/api/vo2max` | VO2Max cardiovascular fitness |
 | `/api/hrv` | HRV stats for AI Coach (internal use) |
+| `/api/nutrition-sprints` | CRUD for nutrition tracking periods |
+| `/api/food-entries` | CRUD for food items with calories/protein |
+| `/api/estimate-calories` | AI-powered calorie estimation |
 | `/api/settings` | Key-value settings (API key) |
 
 ### Main Dashboard (src/app/page.tsx)
@@ -115,6 +120,29 @@ Located in `src/app/api/activity-stats/route.ts`:
 - Compares high activity months (>115% of average) vs low activity months (<85%)
 - Tracks weight trend direction within each month (up/down/flat)
 - Long-term analysis compares step counts during lowest vs highest weight periods
+
+## Nutrition Sprint Feature
+**Location**: Health tab → Nutrition Sprint panel (`src/components/nutrition-sprint.tsx`)
+
+Time-boxed food tracking inspired by the "10-day app" approach:
+- Start a sprint (10, 14, or 20 days) to track food intake
+- Enter food items with manual calories or AI estimation
+- Track daily calories and protein totals
+- AI Coach receives nutrition context during active sprints
+
+**Components**:
+- `NutritionSprintPanel` - UI component in Health tab
+- `/api/nutrition-sprints` - Sprint lifecycle management
+- `/api/food-entries` - Food item CRUD
+- `/api/estimate-calories` - Claude AI calorie estimation
+
+**AI Calorie Estimation**:
+- Uses Claude Sonnet 4.5 via Anthropic API
+- Returns calories, protein, confidence level, and reasoning
+- Supports natural language ("100g grilled chicken", "protein shake")
+- Post-bariatric portion context included in prompt
+
+**Data safety**: `nutrition_sprints` and `food_entries` are user-created data (never touched by Apple Health import)
 
 ## Git Workflow
 When asked to "document, commit and push" - follow that exact order:

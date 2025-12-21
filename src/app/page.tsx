@@ -14,6 +14,7 @@ import { CelebrationModal, checkForCelebrations } from "@/components/gamificatio
 import { BadgeShowcase } from "@/components/gamification/badge-showcase";
 import { StreakCalendar } from "@/components/gamification/streak-calendar";
 import { AICoachPanel } from "@/components/ai-coach/ai-coach-panel";
+import { NutritionSprintPanel } from "@/components/nutrition-sprint";
 import { Progress } from "@/components/ui/progress";
 import {
   Trophy,
@@ -707,12 +708,15 @@ export default function Home() {
       <TabContainer
         activityContent={<ActivityPanel stats={activityStats} />}
         healthContent={
-          <HealthPanel
-            sleep={sleepData}
-            restingHR={restingHR}
-            workouts={workouts}
-            vo2max={vo2max}
-          />
+          <div className="space-y-4">
+            <NutritionSprintPanel apiKey={apiKey} />
+            <HealthPanel
+              sleep={sleepData}
+              restingHR={restingHR}
+              workouts={workouts}
+              vo2max={vo2max}
+            />
+          </div>
         }
         insightsContent={insightsContent}
         coachContent={
