@@ -1,4 +1,4 @@
-# Weight Tracker
+# HealthPulse
 
 A personal weight and health tracking dashboard for Mac that integrates with Apple Health data, featuring AI coaching, gamification, and activity correlation analysis.
 
@@ -63,8 +63,8 @@ A personal weight and health tracking dashboard for Mac that integrates with App
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/weight-tracker.git
-cd weight-tracker
+git clone https://github.com/eprouveze/HealthPulse.git
+cd HealthPulse
 
 # Install dependencies
 npm install
