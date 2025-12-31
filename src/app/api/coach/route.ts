@@ -4,16 +4,10 @@ import { db } from "@/lib/db";
 import { weights, goals, dailySteps, workouts, dailySleep, restingHeartRate, workoutRoutes } from "@/lib/schema";
 import { desc, eq, sql } from "drizzle-orm";
 
-const SYSTEM_PROMPT = `You are a supportive and knowledgeable weight loss coach. You have access to the user's COMPLETE weight history, activity data (steps, workouts), health metrics (resting heart rate), and current progress spanning multiple years.
+// Personal medical context from environment (optional, for personalized coaching)
+const PERSONAL_CONTEXT = process.env.PERSONAL_MEDICAL_CONTEXT || "";
 
-IMPORTANT MEDICAL CONTEXT:
-The user had a successful sleeve gastrectomy (bariatric surgery) on November 1, 2018. This is crucial context for understanding their weight journey:
-- Pre-surgery: Weight reached ~114kg in July 2018
-- Post-surgery: Rapid loss from 106kg to 86kg (lowest in mid-2019)
-- The surgery permanently reduced stomach capacity (~80% removed)
-- This affects: portion sizes, protein absorption, vitamin needs, and weight loss/regain patterns
-- Post-bariatric patients can regain weight years later if habits slip - this is normal but requires attention
-- Their current goal is to get back toward their post-surgery success weight
+const SYSTEM_PROMPT = `You are a supportive and knowledgeable weight loss coach. You have access to the user's COMPLETE weight history, activity data (steps, workouts), health metrics (resting heart rate), and current progress spanning multiple years.
 
 IMPORTANT DATA LIMITATION - SLEEP:
 The sleep data in this system is INCOMPLETE and NOT representative of actual sleep patterns. The user does NOT sleep with their Apple Watch, so the recorded "sleep" entries are only occasional naps or brief periods when the watch happened to be worn. DO NOT:
@@ -49,15 +43,13 @@ Your role is to:
 Keep responses concise (2-4 paragraphs) unless the user asks for detailed analysis. Use a warm, encouraging tone. Focus on sustainable habits, not quick fixes.
 
 Guidelines:
-- For post-bariatric patients: focus on protein-first eating, small frequent meals, avoiding drinking with meals
 - Recommend 0.5-1kg/week as healthy weight loss pace (faster is possible but not sustainable)
-- Emphasize protein intake (critical post-surgery), hydration, and consistent activity
+- Emphasize protein intake, hydration, and consistent activity
 - Acknowledge that weight fluctuates day-to-day (water, sodium, etc.)
-- Never recommend extreme restriction - post-bariatric patients already have reduced intake capacity
+- Never recommend extreme restriction - sustainable habits are key
 - Walking is this user's primary exercise - encourage and celebrate it
 - You have access to ALL historical data - use it to provide insights and comparisons
 - Reference their actual activity data when giving advice
-- When discussing their journey, acknowledge the surgery as a tool that requires ongoing lifestyle commitment
 - Use resting heart rate trends as an indicator of fitness level and recovery
 - Use HRV trends to guide recovery recommendations and activity intensity advice
 - IGNORE sleep data entirely - it is incomplete and not useful for analysis
@@ -65,9 +57,9 @@ Guidelines:
 NUTRITION TRACKING (when active):
 When the user has an active nutrition sprint, you'll receive their food log data. Use this to:
 - Assess if calorie intake aligns with activity level and weight goals
-- Check if protein intake meets bariatric minimum (60-80g/day for post-surgery patients)
+- Check if protein intake is adequate (aim for 60-80g/day minimum)
 - Identify patterns (late eating, low protein days, high calorie days)
-- Provide specific feedback on food choices for bariatric context
+- Provide specific feedback on food choices
 - Celebrate when they hit protein goals
 - Be supportive but honest about high-calorie choices`;
 
@@ -158,13 +150,13 @@ export async function POST(request: Request) {
 Sprint period: ${activeSprint.start_date} to ${activeSprint.end_date}
 Days tracked: ${dates.length}
 Average daily intake: ${avgCalories}kcal, ${avgProtein}g protein
-Protein target for bariatric: 60-80g/day
+Protein target: 60-80g/day minimum
 
 RECENT DAILY TOTALS:
 ${dailySummaries}
 
 Use this data to provide nutrition-specific coaching:
-- Is protein intake adequate for post-bariatric needs?
+- Is protein intake adequate for their goals?
 - Are calories appropriate for their activity level?
 - Any patterns to address (low protein days, excessive snacking, etc.)?
 `;
@@ -356,7 +348,11 @@ Use this data to provide nutrition-specific coaching:
       )
       .join("\n");
 
+    const today = new Date().toISOString().split("T")[0];
+
     const context = `
+=== TODAY'S DATE: ${today} ===
+
 === SUMMARY ===
 Current: ${current.weightKg}kg (${current.date})
 Starting: ${earliest.weightKg}kg (${earliest.date})
@@ -440,7 +436,7 @@ ${nutritionContext}`;
     const response = await client.messages.create({
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 2048,
-      system: SYSTEM_PROMPT + `\n\n${context}`,
+      system: SYSTEM_PROMPT + (PERSONAL_CONTEXT ? `\n\n${PERSONAL_CONTEXT}` : "") + `\n\n${context}`,
       messages,
     });
 

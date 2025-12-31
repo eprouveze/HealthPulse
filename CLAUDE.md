@@ -105,14 +105,6 @@ Dual-axis ComposedChart showing:
 - Precision controls: Day/Week/Month/Year
 - Preferences persisted to localStorage
 
-## User Medical Context
-**Sleeve Gastrectomy**: The user had bariatric surgery on **November 1, 2018**.
-- Pre-surgery peak: ~114kg (July 2018)
-- Post-surgery low: ~86kg (mid-2019)
-- Surgery removed ~80% of stomach capacity
-- This context is included in AI Coach system prompt for personalized advice
-- Post-bariatric considerations: protein-first eating, small frequent meals, vitamin absorption
-
 ## Activity-Weight Correlation Algorithm
 Located in `src/app/api/activity-stats/route.ts`:
 - Uses **1 year** of data for meaningful correlations (not short-term)
@@ -140,7 +132,6 @@ Time-boxed food tracking inspired by the "10-day app" approach:
 - Uses Claude Sonnet 4.5 via Anthropic API
 - Returns calories, protein, confidence level, and reasoning
 - Supports natural language ("100g grilled chicken", "protein shake")
-- Post-bariatric portion context included in prompt
 
 **Data safety**: `nutrition_sprints` and `food_entries` are user-created data (never touched by Apple Health import)
 
@@ -159,4 +150,4 @@ Never push before documenting. Keep changes atomic in a single commit when possi
 When using Playwright MCP for screenshots, PDFs, or any file output:
 - **Always** save to the `Playwright/` folder in the project root
 - **Never** save to the default Downloads folder
-- Use `downloadsDir` parameter: `/Users/eprouveze/Private/WeightTracker/Playwright/`
+- Use `downloadsDir` parameter: `{PROJECT_ROOT}/Playwright/`

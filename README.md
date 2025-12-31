@@ -1,27 +1,55 @@
 # Weight Tracker
 
-A personal weight tracking dashboard for Mac that integrates with Apple Health data, featuring AI coaching, gamification, and activity correlation analysis.
+A personal weight and health tracking dashboard for Mac that integrates with Apple Health data, featuring AI coaching, gamification, and activity correlation analysis.
 
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)
 ![SQLite](https://img.shields.io/badge/SQLite-3-green)
+![Claude AI](https://img.shields.io/badge/Claude-AI%20Coach-orange)
 
 ## Features
 
+### Core Tracking
 - **Weight Tracking**: Import weight data from Apple Health or log manually
-- **Activity Integration**: Steps and workout data (walking, cycling, etc.) from Apple Health
-- **Progress Charts**: Interactive charts with multiple timespans and precision levels
-- **AI Coach**: Personalized coaching powered by Claude (requires Anthropic API key)
-- **Gamification**: XP, levels, streaks, badges, and daily quests
+- **Activity Integration**: Steps, workouts, flights climbed from Apple Health
+- **Body Composition**: Body fat % and lean body mass (from smart scales)
+- **GPS Routes**: Walking/running routes visualized on maps
+
+### Health Metrics
+- **VO2Max**: Cardiovascular fitness tracking
+- **Resting Heart Rate**: Daily resting HR trends
+- **HRV**: Heart rate variability for AI Coach recovery insights
+
+### AI Coaching
+- **Personalized Insights**: AI Coach powered by Claude analyzes your complete health history
+- **Recovery Guidance**: Uses HRV and resting HR for training recommendations
+- **Nutrition Sprint**: Time-boxed food tracking with AI calorie estimation
+- **Comprehensive Context**: Coach has access to years of data for meaningful insights
+
+### Visualization & Analysis
+- **Interactive Charts**: Multi-axis charts with 30D/90D/1Y/3Y/5Y/10Y views
+- **Activity Correlation**: Analyzes relationship between activity and weight changes
 - **Trend Analysis**: Milestones, insights, and historical comparisons
-- **Daily Check-ins**: Track energy levels, fasting hours, and notes
+- **Calendar Heatmaps**: GitHub-style activity visualization
+
+### Gamification
+- **XP & Levels**: Earn XP for consistent tracking and hitting goals
+- **Badges**: Unlock achievements for milestones
+- **Streaks**: Track consecutive days of activity
+- **Daily Quests**: Stay motivated with daily challenges
+
+### Daily Check-ins
+- **Energy Levels**: Track daily energy 1-10
+- **Fasting Hours**: Log intermittent fasting
+- **Notes**: Add context to any day
 
 ## Tech Stack
 
 - **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS, shadcn/ui
 - **Charts**: Recharts
 - **Database**: SQLite with Drizzle ORM
-- **AI**: Anthropic Claude API
+- **AI**: Anthropic Claude API (Sonnet 4.5)
+- **Maps**: Leaflet for GPS route visualization
 
 ## Getting Started
 
@@ -29,10 +57,15 @@ A personal weight tracking dashboard for Mac that integrates with Apple Health d
 
 - Node.js 18+
 - npm or yarn
+- Mac (optimized for desktop use)
 
 ### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/yourusername/weight-tracker.git
+cd weight-tracker
+
 # Install dependencies
 npm install
 
@@ -44,22 +77,17 @@ npm run dev
 
 1. Export your Apple Health data from iPhone (Health app → Profile → Export All Health Data)
 2. Extract the ZIP file
-3. Copy `export.xml` to the `imports/` folder in the project
+3. Copy the entire `apple_health_export` folder to `imports/` in the project
 4. Run the import:
 
 ```bash
 npm run import
 ```
 
-Or specify a custom path:
-```bash
-npx tsx scripts/import-apple-health.ts /path/to/export.xml
-```
-
 The import script:
 - Creates automatic backups before importing
 - Deduplicates data from multiple devices (iPhone + Apple Watch)
-- Imports weights, daily steps, and workouts
+- Imports: weights, steps, workouts, sleep, resting HR, body composition, VO2Max, HRV, GPS routes
 - **Safe**: Settings, goals, and check-ins are never modified
 
 ### Database Commands
@@ -69,6 +97,26 @@ npm run db:generate   # Generate migrations from schema changes
 npm run db:migrate    # Run pending migrations
 npm run db:studio     # Open Drizzle Studio GUI
 ```
+
+## Configuration
+
+### AI Coach Setup
+
+The AI Coach requires an Anthropic API key:
+
+1. Get your API key from [console.anthropic.com](https://console.anthropic.com)
+2. Click the Settings icon in the app
+3. Enter your API key and click Save
+
+### Personal Context (Optional)
+
+For personalized AI coaching, create a `.env.local` file (see `.env.local.example`):
+
+```env
+PERSONAL_MEDICAL_CONTEXT="Your personal health context for the AI coach"
+```
+
+This file is gitignored and stays on your local machine only.
 
 ## Project Structure
 
@@ -82,6 +130,7 @@ src/
 │   ├── weight-activity-chart.tsx
 │   ├── gamification-panel.tsx
 │   ├── activity-panel.tsx
+│   ├── nutrition-sprint.tsx
 │   └── lifestyle-tracker.tsx
 └── lib/
     ├── schema.ts      # Drizzle database schema
@@ -94,13 +143,9 @@ scripts/
 └── watch-import.ts         # Auto-import watcher
 ```
 
-## AI Coach Setup
+## Screenshots
 
-The AI Coach requires an Anthropic API key:
-
-1. Get your API key from [console.anthropic.com](https://console.anthropic.com)
-2. Click the Settings icon in the app
-3. Enter your API key and click Save
+*Coming soon*
 
 ## License
 

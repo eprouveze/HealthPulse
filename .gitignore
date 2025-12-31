@@ -30,6 +30,7 @@ yarn-error.log*
 
 # env files
 .env*
+!.env.local.example
 
 # vercel
 .vercel
@@ -53,3 +54,7 @@ imports/*
 
 # Playwright screenshots
 /Playwright/
+
+# Personal analysis docs (not for public repo)
+/docs/walking-analysis/
+/claudedocs/

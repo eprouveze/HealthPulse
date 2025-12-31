@@ -44,8 +44,6 @@ Important:
 - For Japanese foods, use typical Japanese portions
 - Round to nearest whole number
 - If the portion is unclear, assume a standard single serving
-- For post-bariatric patients, smaller portions are typical (about 1/3 to 1/2 of normal)
-- Common post-bariatric foods: protein shakes, eggs, chicken, fish, Greek yogurt
 - If the user mentions a brand or specific product, use known nutritional data if available`;
 
     const response = await client.messages.create({
