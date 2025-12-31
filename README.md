@@ -7,6 +7,8 @@ A personal weight and health tracking dashboard for Mac that integrates with App
 ![SQLite](https://img.shields.io/badge/SQLite-3-green)
 ![Claude AI](https://img.shields.io/badge/Claude-AI%20Coach-orange)
 
+![Dashboard Screenshot](screenshots/dashboard.png)
+
 ## Features
 
 ### Core Tracking
@@ -33,15 +35,59 @@ A personal weight and health tracking dashboard for Mac that integrates with App
 - **Calendar Heatmaps**: GitHub-style activity visualization
 
 ### Gamification
-- **XP & Levels**: Earn XP for consistent tracking and hitting goals
+
+Stay motivated with a complete gamification system:
+
+- **XP System**: Earn experience points for healthy behaviors
+  - Log weight: +10 XP
+  - Hit step goal: +15 XP
+  - Complete workout: +20 XP
+  - Maintain streak: +5 XP per day
+- **Levels**: Progress through levels as you accumulate XP (Level 1-50+)
+- **Streaks**: Track consecutive days of activity with streak bonuses
 - **Badges**: Unlock achievements for milestones
-- **Streaks**: Track consecutive days of activity
-- **Daily Quests**: Stay motivated with daily challenges
+  - First Steps, Week Warrior, Month Master
+  - Weight milestones (5kg, 10kg lost)
+  - Consistency badges (30-day, 100-day streaks)
+- **Daily Quests**: Fresh challenges each day to keep you engaged
+- **Progress Bar**: Visual feedback on your journey to the next level
 
 ### Daily Check-ins
 - **Energy Levels**: Track daily energy 1-10
 - **Fasting Hours**: Log intermittent fasting
 - **Notes**: Add context to any day
+
+## Privacy & Data Security
+
+**Your health data stays on your machine.**
+
+### Local-First Architecture
+- **All data stored locally** in SQLite database on your computer
+- **No cloud sync** - you control your data completely
+- **No analytics or telemetry** - we don't track usage
+- **No account required** - just clone and run
+
+### AI Coach Data Handling
+
+When you use the AI Coach feature, your health data is sent to Anthropic's Claude API:
+
+| Data Sent | Purpose |
+|-----------|---------|
+| Weight history | Trend analysis and personalized advice |
+| Activity data (steps, workouts) | Activity-weight correlation insights |
+| Body composition | Comprehensive health assessment |
+| Resting HR, HRV | Recovery and training recommendations |
+
+**Important considerations:**
+- Data is sent **only when you explicitly ask the AI Coach a question**
+- Your API key is stored locally in your database (never transmitted to us)
+- Anthropic's [data usage policy](https://www.anthropic.com/policies/privacy-policy) applies
+- You can use the app without the AI Coach feature
+
+### Recommendations
+- Review Anthropic's privacy policy before using AI Coach
+- Don't include sensitive personal information in check-in notes
+- Your `.env.local` file (with personal medical context) is gitignored
 
 ## Tech Stack
 
@@ -140,12 +186,9 @@ src/
 
 scripts/
 ├── import-apple-health.ts  # Apple Health XML parser
+├── generate-demo-data.ts   # Generate demo data for testing
 └── watch-import.ts         # Auto-import watcher
 ```
-
-## Screenshots
-
-*Coming soon*
 
 ## License
 
