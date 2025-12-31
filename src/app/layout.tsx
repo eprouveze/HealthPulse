@@ -6,8 +6,8 @@ import { SuppressDevToolsWarning } from "./components/SuppressDevToolsWarning";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Weight Tracker",
-  description: "Track your weight loss journey",
+  title: "HealthPulse",
+  description: "Personal health tracking dashboard with AI coaching",
 };
 
 export default function RootLayout({

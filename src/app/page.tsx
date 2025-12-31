@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { WeightActivityChart } from "@/components/weight-activity-chart";
@@ -591,7 +592,15 @@ export default function Home() {
     <main className="container mx-auto p-4 max-w-6xl">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Weight Tracker</h1>
+        <div className="flex items-center gap-3">
+          <Image
+            src="/HealthPulseLogo.png"
+            alt="HealthPulse"
+            width={64}
+            height={64}
+          />
+          <h1 className="text-3xl font-bold">HealthPulse</h1>
+        </div>
         <Button variant="ghost" size="icon" onClick={() => setShowSettings(true)}>
           <Settings className="h-5 w-5" />
         </Button>

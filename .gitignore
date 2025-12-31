@@ -58,3 +58,4 @@ imports/*
 # Personal analysis docs (not for public repo)
 /docs/walking-analysis/
 /claudedocs/
+.playwright-mcp/

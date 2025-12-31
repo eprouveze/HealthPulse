@@ -1,13 +1,23 @@
-# HealthPulse
+<p align="center">
+  <img src="public/logo-200.png" alt="HealthPulse Logo" width="120" height="120">
+</p>
 
+<h1 align="center">HealthPulse</h1>
+
+<p align="center">
 A personal weight and health tracking dashboard for Mac that integrates with Apple Health data, featuring AI coaching, gamification, and activity correlation analysis.
+</p>
 
-![Next.js](https://img.shields.io/badge/Next.js-15-black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)
-![SQLite](https://img.shields.io/badge/SQLite-3-green)
-![Claude AI](https://img.shields.io/badge/Claude-AI%20Coach-orange)
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-15-black" alt="Next.js">
+  <img src="https://img.shields.io/badge/TypeScript-5.7-blue" alt="TypeScript">
+  <img src="https://img.shields.io/badge/SQLite-3-green" alt="SQLite">
+  <img src="https://img.shields.io/badge/Claude-AI%20Coach-orange" alt="Claude AI">
+</p>
 
 ![Dashboard Screenshot](screenshots/dashboard.png)
+
+![AI Coach Screenshot](screenshots/ai-coach.png)
 
 ## Features
 
