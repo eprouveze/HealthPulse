@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { BadgeShowcase } from "@/components/gamification/badge-showcase";
 import { StreakCalendar } from "@/components/gamification/streak-calendar";
 import { AICoachPanel } from "@/components/ai-coach/ai-coach-panel";
 import { NutritionSprintPanel } from "@/components/nutrition-sprint";
+import { ImportNotification } from "@/components/import-notification";
 import { Progress } from "@/components/ui/progress";
 import {
   Trophy,
@@ -181,6 +182,58 @@ export default function Home() {
   }>({ current: null, prev30: null });
 
   const today = format(new Date(), "yyyy-MM-dd");
+
+  const refreshData = useCallback(async () => {
+    const [
+      weightsData, statsData, analysisData, gameData, entriesData,
+      stepsData, workoutsData, activityStatsData, sleepDataRes,
+      restingHRRes, workoutRoutesRes, bodyCompRes, vo2maxRes
+    ] = await Promise.all([
+      fetch("/api/weights").then((r) => r.json()),
+      fetch("/api/stats").then((r) => r.json()),
+      fetch("/api/analysis").then((r) => r.json()),
+      fetch("/api/game").then((r) => r.json()),
+      fetch("/api/entries").then((r) => r.json()),
+      fetch("/api/steps").then((r) => r.json()),
+      fetch("/api/workouts").then((r) => r.json()),
+      fetch("/api/activity-stats").then((r) => r.json()),
+      fetch("/api/sleep").then((r) => r.json()),
+      fetch("/api/resting-hr").then((r) => r.json()),
+      fetch("/api/workout-routes").then((r) => r.json()),
+      fetch("/api/body-composition").then((r) => r.json()),
+      fetch("/api/vo2max").then((r) => r.json()),
+    ]);
+
+    setWeights(weightsData);
+    setStats(statsData);
+    setAnalysis(analysisData);
+    setGameState(gameData);
+    setSteps(stepsData);
+    setWorkouts(workoutsData);
+    setActivityStats(activityStatsData);
+    setSleepData(sleepDataRes);
+    setRestingHR(restingHRRes);
+    setWorkoutRoutes(workoutRoutesRes);
+    setAllEntries(entriesData);
+    setTodayEntry(entriesData.find((e: Entry) => e.date === today) || null);
+
+    if (bodyCompRes.length > 0) {
+      setBodyComp({
+        current: bodyCompRes[0],
+        prev30: bodyCompRes.find((d: { date: string }) => {
+          const daysDiff = Math.floor(
+            (new Date(bodyCompRes[0].date).getTime() - new Date(d.date).getTime()) / (1000 * 60 * 60 * 24)
+          );
+          return daysDiff >= 28 && daysDiff <= 35;
+        }) || null,
+      });
+    }
+
+    setVo2max({
+      current: vo2maxRes.current,
+      prev30: vo2maxRes.prev30,
+    });
+  }, [today]);
 
   useEffect(() => {
     fetch("/api/body-composition")
@@ -605,6 +658,9 @@ export default function Home() {
           <Settings className="h-5 w-5" />
         </Button>
       </div>
+
+      {/* Import Notification */}
+      <ImportNotification onImportComplete={refreshData} />
 
       {/* Hero Section */}
       <HeroSection

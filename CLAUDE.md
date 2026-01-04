@@ -78,12 +78,16 @@ Apple Health XML → scripts/import-apple-health.ts → SQLite (weight-tracker.d
 | `/api/food-entries` | CRUD for food items with calories/protein |
 | `/api/estimate-calories` | AI-powered calorie estimation |
 | `/api/settings` | Key-value settings (API key) |
+| `/api/import/check` | Check for new Apple Health data |
+| `/api/import/run` | Trigger import from UI |
 
 ### Main Dashboard (src/app/page.tsx)
 Single-page dashboard with sections: Stats cards → Progress chart → Activity panel → Insights → AI Coach → Gamification → Daily check-in → Trends → Recent entries
 
 ### Apple Health Import
-**Workflow**: Export from iPhone Health app → Unzip → Copy entire `apple_health_export` folder to `imports/` → Run `npm run import`
+**In-App Import** (preferred): When new health data is detected, an import notification banner appears at the top of the dashboard. Click "Import Now" to run the import directly from the UI. The check also auto-extracts `export.zip` if found in the imports directory.
+
+**CLI Workflow**: Export from iPhone Health app → Unzip → Copy entire `apple_health_export` folder to `imports/` → Run `npm run import`
 
 The import script (`scripts/import-apple-health.ts`):
 - Default path: `imports/apple_health_export/export.xml`
