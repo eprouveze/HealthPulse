@@ -214,6 +214,10 @@ scripts/
 └── watch-import.ts         # Auto-import watcher
 ```
 
+## Author
+
+Built by [Emmanuel Prouvèze](https://linkedin.com/in/eprouveze) - enterprise sales leader, hobby coder, AI enthusiast.
+
 ## License
 
 MIT
