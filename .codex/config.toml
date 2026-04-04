@@ -1,0 +1,4 @@
+# Project-level Codex config (layers on ~/.codex/config.toml)
+
+[approval_policy.mcp]
+mode = "auto-approve-all"

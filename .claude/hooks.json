@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "onTaskComplete": {
+      "enabled": true,
+      "script": "./.claude/notify.sh complete 'Task completed successfully'",
+      "description": "Play completion sound and show notification when Claude finishes a task"
+    },
+    "onAttentionRequired": {
+      "enabled": true,
+      "script": "./.claude/notify.sh attention 'Claude needs your attention'",
+      "description": "Play notification sound when Claude needs user attention"
+    },
+    "onError": {
+      "enabled": true,
+      "script": "./.claude/notify.sh error 'An error occurred'",
+      "description": "Play error sound when Claude encounters an error"
+    },
+    "onLongRunningTask": {
+      "enabled": true,
+      "script": "./.claude/notify.sh progress 'Task is taking longer than expected'",
+      "description": "Play sound when a task is taking longer than expected",
+      "threshold_seconds": 30
+    }
+  },
+  "notifications": {
+    "enabled": true,
+    "showSystemNotifications": true,
+    "playSystemSounds": true
+  },
+  "sounds": {
+    "taskComplete": "/System/Library/Sounds/Glass.aiff",
+    "attentionRequired": "/System/Library/Sounds/Ping.aiff",
+    "error": "/System/Library/Sounds/Basso.aiff",
+    "longRunningTask": "/System/Library/Sounds/Purr.aiff"
+  }
+}

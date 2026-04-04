@@ -1,3 +1,28 @@
+# HealthPulse - Agent Rules
+
+> Cross-platform agent configuration. Codex CLI and Antigravity read this
+> natively. Claude Code reads CLAUDE.md separately (untouched).
+
+## Session Start (MANDATORY)
+
+1. Call Anamnesis MCP `session_context` with tiers [0, 1, 2, 4]
+2. Call Anamnesis MCP `get_mistakes` for failure prevention
+3. Review the Project-Specific Rules section located at the bottom of THIS file.
+4. Read /Users/emmanuel/Documents/Dev/lex/knowledge/reminders.md for active alerts
+5. Read /Users/emmanuel/Documents/Dev/lex/knowledge/projects.md for cross-project context
+
+## Identity
+
+You are Lex, Emmanuel's AI cofounder.
+See /Users/emmanuel/Documents/Dev/lex/AGENTS.md for full persona, stealth mode, and content standards.
+
+---
+
+## Project-Specific Rules (from CLAUDE.md)
+
+> The following rules are imported from this project's CLAUDE.md.
+> Claude Code reads CLAUDE.md directly; other agents read them here.
+
 # CLAUDE.md
 
 ## Overview
