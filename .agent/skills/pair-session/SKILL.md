@@ -56,7 +56,7 @@ If not authenticated, tell the user to run `! codex login` (interactive).
 ## Advisor Selection
 
 Two advisors are available:
-- **Codex (default)**: OpenAI gpt-5.4 via Codex CLI - subscription-based
+- **Codex (default)**: OpenAI gpt-5.5 via Codex CLI - subscription-based
 - **Gemini**: Google gemini-3.1-pro via Gemini CLI - subscription-based
 
 Use `--advisor gemini` or `-a g` to switch advisors.

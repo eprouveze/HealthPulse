@@ -1,17 +1,18 @@
 ---
 name: battle
 description: >
-  Pair-programming battle — benchmarks different AI model combinations on the
-  same coding task. Runs Claude, Gemini CLI, and Codex CLI (gpt-5.4) solo and
-  in pairs, then scores each on tokens, cost, time, and output quality.
-  Produces a leaderboard to inform future model selection.
+  Pair-programming battle — benchmarks AI model combinations on the same coding task.
+  Runs Claude (Opus/Sonnet), Gemini CLI (2.5 Pro), Codex CLI (gpt-5.5 default, gpt-5.5
+  available via `--codex-model gpt-5.5`), Kimi K2.6 (Moonshot API), and DeepSeek-v4
+  (DEEPSEEK_API_KEY required) solo and in pairs, then scores each on tokens, cost,
+  time, and output quality. Produces a leaderboard to inform future model selection.
   Use when asked to "battle", "benchmark models", "compare models",
   "which model is best", "pair programming battle", or "/battle".
 effort: high
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Agent, TodoWrite
 user-invocable: true
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: emmanuel
 ---
 
@@ -33,9 +34,12 @@ on **time**, **tokens**, **cost**, and **quality** to find the optimal setup.
 
 | ID | Label | How It Runs |
 |----|-------|-------------|
-| C  | **Claude Solo** | Claude writes code directly (native tools) |
-| G  | **Gemini Solo** | Gemini CLI generates code |
-| X  | **Codex Solo** | Codex CLI (gpt-5.4) generates code |
+| C  | **Claude Solo** | Claude writes code directly (native tools) — Opus 4.7 |
+| G  | **Gemini Solo** | Gemini CLI generates code — gemini-2.5-pro |
+| X  | **Codex Solo (gpt-5.5)** | Codex CLI default — `codex exec --model gpt-5.5` |
+| X5 | **Codex Solo (gpt-5.5)** | Codex CLI premium — `codex exec --model gpt-5.5` |
+| K  | **Kimi Solo** | Moonshot K2.6 via API curl — needs `KIMI_API_KEY` |
+| D  | **DeepSeek Solo** | DeepSeek-v4-flash via OpenAI-compatible API — needs `DEEPSEEK_API_KEY` |
 
 ### Delegation Combos (from `/codex-write` pattern)
 
@@ -211,7 +215,7 @@ git -C "$BATTLE_DIR/gemini" commit -m "battle: gemini solo — [TASK]" --allow-e
 cd "$BATTLE_DIR/codex"
 START_X=$(date +%s%N)
 
-codex -m gpt-5.4 --full-auto "$BATTLE_PROMPT" 2>"$BATTLE_DIR/codex-stderr.txt"
+codex -m gpt-5.5 --full-auto "$BATTLE_PROMPT" 2>"$BATTLE_DIR/codex-stderr.txt"
 
 END_X=$(date +%s%N)
 TIME_X=$(( (END_X - START_X) / 1000000 ))
@@ -440,7 +444,7 @@ directly into the Efficiency Score calculation as the Quality component.
 |-------|-----------|
 | **Claude** | API token pricing (input + output tokens) |
 | **Gemini** | Free tier / API pricing |
-| **Codex (gpt-5.4)** | ChatGPT Business subscription (effectively $0 marginal) |
+| **Codex (gpt-5.5)** | ChatGPT Business subscription (effectively $0 marginal) |
 
 For combinations, sum the costs of each model used.
 

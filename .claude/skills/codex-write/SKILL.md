@@ -140,7 +140,7 @@ START_TIME=$(date +%s)
 SAFETY_COMMIT=$(git rev-parse HEAD)
 
 codex exec \
-  -m gpt-5.4 \
+  -m gpt-5.5 \
   -s workspace-write \
   "[THE PROMPT]" \
   2>&1 | tee .codex_output.log
@@ -150,14 +150,14 @@ DURATION=$(($(date +%s) - START_TIME))
 ```
 
 **Critical flags:**
-- `-m gpt-5.4` — flagship model, 1050K context (subscription)
+- `-m gpt-5.5` — flagship model, 1050K context (subscription)
 - `-s workspace-write` — allows file writes
 - NEVER use `-s danger-full-access` unless user explicitly requests
 - NEVER pass auth flags — Codex handles its own auth
 
 **For long prompts** (>2000 chars), use stdin:
 ```bash
-echo "THE LONG PROMPT" | codex exec -m gpt-5.4 -s workspace-write - 2>&1 | tee .codex_output.log
+echo "THE LONG PROMPT" | codex exec -m gpt-5.5 -s workspace-write - 2>&1 | tee .codex_output.log
 ```
 
 ### Step 4: Verification Pipeline (4 Layers)

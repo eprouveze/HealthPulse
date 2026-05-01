@@ -55,11 +55,12 @@ If not authenticated, tell the user to run `! codex login` (interactive).
 
 ## Advisor Selection
 
-Two advisors are available:
-- **Codex (default)**: OpenAI gpt-5.4 via Codex CLI - subscription-based
-- **Gemini**: Google gemini-3.1-pro via Gemini CLI - subscription-based
+Three advisors are available:
+- **Codex (default)**: OpenAI gpt-5.5 via Codex CLI — subscription-based. Pass `--codex-model gpt-5.5` for the sharper Diagnostician model (slower, ~2× cost).
+- **Gemini**: Google gemini-3.1-pro via Gemini CLI — subscription-based. Add `--skip-trust` if running from non-trusted dir (Gemini CLI 0.39+).
+- **DeepSeek-v4** (optional): via OpenAI-compatible API at `api.deepseek.com` — needs `DEEPSEEK_API_KEY`. Strong field-engineer voice (web-fresh, ready-to-paste artifacts, tabular).
 
-Use `--advisor gemini` or `-a g` to switch advisors.
+Use `--advisor gemini` or `-a g` to switch advisors. `--advisor deepseek` / `-a d` for DeepSeek.
 
 ## Simple Task Warning
 

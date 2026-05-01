@@ -2,7 +2,7 @@
 name: second-opinion
 version: 1.0.0
 description: |
-  Get a second opinion from OpenAI's Codex CLI (gpt-5.4). Three modes:
+  Get a second opinion from OpenAI's Codex CLI (gpt-5.5). Three modes:
   review (pass/fail code review), challenge (adversarial — try to break it),
   and consult (multi-turn Q&A with session persistence). Uses ChatGPT Business
   subscription auth — NEVER an API key. Use when asked for "second opinion",
@@ -15,7 +15,7 @@ allowed-tools:
 
 # /second-opinion — Cross-LLM Review via Codex CLI
 
-Get an independent review from OpenAI's gpt-5.4 model. Three modes
+Get an independent review from OpenAI's gpt-5.5 model. Three modes
 for different needs.
 
 ## CRITICAL: Authentication

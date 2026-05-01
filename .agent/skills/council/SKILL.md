@@ -59,7 +59,7 @@ Each advisor writes their response directly to a persistent file. Lex synthesize
    |------------|----------|-------|-------------|
    | council-opus | anthropic | opus | `docs/council-sessions/.../opus.md` |
    | council-gemini | google | gemini-2.5-pro | `docs/council-sessions/.../gemini.md` |
-   | council-gpt | openai | gpt-5.4 | `docs/council-sessions/.../gpt54.md` |
+   | council-gpt | openai | gpt-5.5 | `docs/council-sessions/.../gpt54.md` |
 
    **CRITICAL RULES:**
    - Each agent MUST write to the output file using Write tool — NOT stdout

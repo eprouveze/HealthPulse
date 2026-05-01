@@ -7,11 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "import": "npx tsx scripts/import-apple-health.ts",
+    "import": "npx tsx scripts/import-apple-health.ts && npx tsx scripts/health-digest.ts --save",
     "watch": "npx tsx scripts/watch-import.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "health:digest": "npx tsx scripts/health-digest.ts",
+    "health:digest:save": "npx tsx scripts/health-digest.ts --save"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",

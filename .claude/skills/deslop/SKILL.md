@@ -1,7 +1,7 @@
 ---
 name: deslop
-description: Remove AI writing patterns from content. Use when reviewing blog posts, marketing copy, emails, or any customer-facing text. Checks for 18 AI-tell patterns across phrasing, rhythm, and authenticity. Trigger phrases — "deslop this", "clean up AI writing", "check for AI patterns", "remove AI tells", "content quality check", "is this sloppy".
-version: "1.0.0"
+description: Remove AI writing patterns from content. Use when reviewing blog posts, marketing copy, emails, or any customer-facing text. Checks for 22 AI-tell patterns across phrasing, rhythm, and authenticity. Trigger phrases — "deslop this", "clean up AI writing", "check for AI patterns", "remove AI tells", "content quality check", "is this sloppy".
+version: "1.1.0"
 author: lex
 effort: medium
 allowed-tools: Read, Edit, Grep, Glob
@@ -22,7 +22,7 @@ Strip AI-generated writing patterns from any content. Works on existing files or
 - When reviewing existing content for quality
 - Before publishing or committing content
 
-## The 18 AI-Tell Patterns
+## The 22 AI-Tell Patterns
 
 ### Phrasing Flags
 
@@ -33,6 +33,9 @@ Strip AI-generated writing patterns from any content. Works on existing files or
 | 3 | **Dramatic pivot phrases** | "But here's the thing", "Here's the catch", "Here's what most people miss" | Cut entirely or use a natural transition |
 | 4 | **Soft hedging** | "It's worth noting", "It's important to remember", "Something we've observed" | Say it directly — if it's worth noting, just note it |
 | 5 | **AI-tell words** | delve, landscape, realm, tapestry, leverage (verb), paradigm, robust, utilize, synergy, elevate, foster, holistic, streamline, cutting-edge, game-changer, deep dive | Replace with plain English equivalents |
+| 19 | **Negation framing** | "isn't just about X", "isn't simply", "it's not X, it's Y", "goes beyond merely", "more than just a" | State the positive claim directly — don't set up what something "isn't" before saying what it is |
+| 20 | **"From X to Y" coverage spans** | "from startups to enterprises", "from beginners to experts", "from simple to complex" | Either commit to a specific audience or drop the qualifier |
+| 21 | **"Whether X or Y" inclusivity** | "whether you're a developer or a designer", "whether you work in X or Y" | Pick your audience or trust them to self-select |
 
 ### Rhythm Flags
 
@@ -107,6 +110,15 @@ grep -iE "^(Let'?s (explore|unpack|dive|take a closer|break down|look at)|In thi
 
 # Transition word abuse (at paragraph start)
 grep -iE "^(Moreover|Furthermore|Additionally|Consequently|Nevertheless|Nonetheless)" "$FILE"
+
+# Negation framing (#19)
+grep -iE "\b(isn'?t just|isn'?t simply|not just about|goes beyond merely|more than just a)\b" "$FILE"
+
+# "From X to Y" coverage spans (#20)
+grep -iE "from (startups?|beginners?|small|large|simple|complex|novice|expert)" "$FILE"
+
+# "Whether X or Y" inclusivity (#21)
+grep -iE "whether you'?re? (a |an )?\w+" "$FILE"
 ```
 
 ### Manual Checks (require human judgment)
@@ -119,14 +131,15 @@ grep -iE "^(Moreover|Furthermore|Additionally|Consequently|Nevertheless|Nonethel
 - Generic examples (vague company references)
 - Superlative stacking (multiple weak adjectives)
 - False balance (hedging every position)
+- **#22 Tricolon / rule of threes** — compulsive 3-part parallel lists ("fast, reliable, and scalable" / "we researched, analyzed, and synthesized"). 2 instances = fine, 4+ = pattern flag.
 
 ## Severity Levels
 
 | Level | Action | Patterns |
 |-------|--------|----------|
 | **BLOCK** | Must fix before publish | AI-tell words, em-dashes >5, throat-clearing, gift-wrapped endings |
-| **WARN** | Should fix, not blocking | Corrective antithesis, dramatic pivots, soft hedging, transition abuse |
-| **NOTE** | Improve if time allows | Staccato, cookie-cutter, perfect punctuation, overexplaining |
+| **WARN** | Should fix, not blocking | Corrective antithesis, dramatic pivots, soft hedging, transition abuse, negation framing (#19), coverage spans (#20), inclusivity framing (#21) |
+| **NOTE** | Improve if time allows | Staccato, cookie-cutter, perfect punctuation, overexplaining, tricolon overuse (#22) |
 
 ## Integration Points
 
@@ -137,4 +150,4 @@ grep -iE "^(Moreover|Furthermore|Additionally|Consequently|Nevertheless|Nonethel
 
 ## Credit
 
-Patterns derived from Tahi's "12 Red Flags of AI Writing" (mooch.agency, Feb 2026), extended with 6 additional patterns from Golden Corpus content QA experience.
+Patterns derived from Tahi's "12 Red Flags of AI Writing" (mooch.agency, Feb 2026), extended with 6 additional patterns from Golden Corpus content QA experience. Patterns #19–22 added Apr 2026 from Jejomar Contawe's "The Single Most Prevalent AI Writing Tell" (Medium, Feb 2026) — negation framing, coverage spans, inclusivity framing, and tricolon overuse.

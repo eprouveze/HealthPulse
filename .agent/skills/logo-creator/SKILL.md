@@ -2,7 +2,7 @@
 name: logo-creator
 description: >
   Design logos using SVG code or AI image generation (OpenAI gpt-image). Offers both paths:
-  SVG for iterative vector logos, AI image (gpt-image-1.5/1) for raster/painterly logos.
+  SVG for iterative vector logos, AI image (gpt-image-2/1) for raster/painterly logos.
   Use when the user asks to "create a logo", "design a logo", "make me a logo".
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, AskUserQuestion, WebFetch
 user-invocable: true
@@ -10,7 +10,7 @@ user-invocable: true
 
 # Logo Creator
 
-Design logos via two paths: **SVG** (code-generated vectors) or **AI Image** (OpenAI gpt-image-1.5 raster). Both support iterative refinement with side-by-side preview.
+Design logos via two paths: **SVG** (code-generated vectors) or **AI Image** (OpenAI gpt-image-2 raster). Both support iterative refinement with side-by-side preview.
 
 ## IMMEDIATE ACTION — Route by Argument
 
@@ -44,7 +44,7 @@ options:
   - label: "SVG only"
     description: "Code-generated vectors — fully editable, infinite scale, free"
   - label: "AI Image only"
-    description: "OpenAI gpt-image-1.5 raster — painterly, photorealistic, unique ($0.02-0.19/image)"
+    description: "OpenAI gpt-image-2 raster — painterly, photorealistic, unique ($0.02-0.19/image)"
 ```
 
 **Question 2 — Style direction:**
@@ -193,7 +193,7 @@ import { join } from "path";
 
 const openai = new OpenAI();
 
-async function generate(prompt: string, outPath: string, model = "gpt-image-1.5") {
+async function generate(prompt: string, outPath: string, model = "gpt-image-2") {
   const response = await openai.images.generate({
     model,
     prompt,
@@ -214,7 +214,7 @@ async function generate(prompt: string, outPath: string, model = "gpt-image-1.5"
 
 Generate 3-4 variations by tweaking the prompt:
 1. Save to `logos/concepts/ai-concept-N.png`
-2. Default to `gpt-image-1.5` (best quality). Fall back to `gpt-image-1` if unavailable. Try both for comparison if budget allows.
+2. Default to `gpt-image-2` (best quality). Fall back to `gpt-image-2` if unavailable. Try both for comparison if budget allows.
 3. Generate `logos/preview.html` showing all AI concepts
 4. **Save every prompt** to `logos/prompts.md` for reproducibility
 
@@ -224,7 +224,7 @@ Generate 3-4 variations by tweaking the prompt:
 # Logo Generation Prompts
 
 ## Concept 1
-- **Model:** gpt-image-1
+- **Model:** gpt-image-2
 - **File:** concepts/ai-concept-1.png
 - **Prompt:** [full prompt text]
 

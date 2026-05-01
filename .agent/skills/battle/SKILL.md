@@ -2,7 +2,7 @@
 name: battle
 description: >
   Pair-programming battle — benchmarks different AI model combinations on the
-  same coding task. Runs Claude, Gemini CLI, and Codex CLI (gpt-5.4) solo and
+  same coding task. Runs Claude, Gemini CLI, and Codex CLI (gpt-5.5) solo and
   in pairs, then scores each on tokens, cost, time, and output quality.
   Produces a leaderboard to inform future model selection.
   Use when asked to "battle", "benchmark models", "compare models",
@@ -35,7 +35,7 @@ on **time**, **tokens**, **cost**, and **quality** to find the optimal setup.
 |----|-------|-------------|
 | C  | **Claude Solo** | Claude writes code directly (native tools) |
 | G  | **Gemini Solo** | Gemini CLI generates code |
-| X  | **Codex Solo** | Codex CLI (gpt-5.4) generates code |
+| X  | **Codex Solo** | Codex CLI (gpt-5.5) generates code |
 
 ### Delegation Combos (from `/codex-write` pattern)
 
@@ -211,7 +211,7 @@ git -C "$BATTLE_DIR/gemini" commit -m "battle: gemini solo — [TASK]" --allow-e
 cd "$BATTLE_DIR/codex"
 START_X=$(date +%s%N)
 
-codex -m gpt-5.4 --full-auto "$BATTLE_PROMPT" 2>"$BATTLE_DIR/codex-stderr.txt"
+codex -m gpt-5.5 --full-auto "$BATTLE_PROMPT" 2>"$BATTLE_DIR/codex-stderr.txt"
 
 END_X=$(date +%s%N)
 TIME_X=$(( (END_X - START_X) / 1000000 ))
@@ -440,7 +440,7 @@ directly into the Efficiency Score calculation as the Quality component.
 |-------|-----------|
 | **Claude** | API token pricing (input + output tokens) |
 | **Gemini** | Free tier / API pricing |
-| **Codex (gpt-5.4)** | ChatGPT Business subscription (effectively $0 marginal) |
+| **Codex (gpt-5.5)** | ChatGPT Business subscription (effectively $0 marginal) |
 
 For combinations, sum the costs of each model used.
 

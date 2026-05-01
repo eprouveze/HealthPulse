@@ -24,7 +24,7 @@ This agent operates fully autonomously. No human-in-the-loop checkpoints.
   are hard gates. Content that fails any of these does not ship.
 
 **Cost controls:**
-- gpt-image-1 hero images: generate by default. If `skip-image=true`, skip.
+- gpt-image-2 hero images: generate by default. If `skip-image=true`, skip.
   Cost is ~$0.04/image (high quality) — no approval needed.
 - Infographics via Gemini: generate by default. If `skip-infographic=true`, skip.
 

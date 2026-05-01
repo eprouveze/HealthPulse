@@ -1,13 +1,15 @@
 ---
 name: second-opinion
-version: 1.0.0
+version: 1.1.0
 description: |
-  Get a second opinion from OpenAI's Codex CLI (gpt-5.4). Three modes:
-  review (pass/fail code review), challenge (adversarial — try to break it),
-  and consult (multi-turn Q&A with session persistence). Uses ChatGPT Business
-  subscription auth — NEVER an API key. Use when asked for "second opinion",
-  "codex review", "adversarial review", "challenge this code", "cross-model review",
-  or "/second-opinion".
+  Get a second opinion from OpenAI's Codex CLI. Default model: gpt-5.5. Pass
+  `--model gpt-5.5` for sharper diagnostician-style review (slower, ~2× cost,
+  worth it for hard prompts — see lex/docs/research/gpt55-persona-elicitation/).
+  Three modes: review (pass/fail code review), challenge (adversarial — try to
+  break it), consult (multi-turn Q&A with session persistence). Uses ChatGPT
+  Business subscription auth — NEVER an API key. Use when asked for "second
+  opinion", "codex review", "adversarial review", "challenge this code",
+  "cross-model review", or "/second-opinion".
 allowed-tools:
   - Bash
   - Read
@@ -15,8 +17,8 @@ allowed-tools:
 
 # /second-opinion — Cross-LLM Review via Codex CLI
 
-Get an independent review from OpenAI's gpt-5.4 model. Three modes
-for different needs.
+Get an independent review from OpenAI's gpt-5.5 (default) or gpt-5.5
+(`--model gpt-5.5`). Three modes for different needs.
 
 ## CRITICAL: Authentication
 

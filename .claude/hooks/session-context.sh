@@ -9,8 +9,18 @@ set -euo pipefail
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 SESSION_LOG="$PROJECT_DIR/docs/sessions/log.md"
 
-# Write a stable session ID for use by edit-counter.sh
+# Clean up loop-detector state from the previous session before writing new ID
 SESSION_ID_FILE="$PROJECT_DIR/.claude/hooks/.session-id"
+OLD_SESSION_ID=$(cat "$SESSION_ID_FILE" 2>/dev/null || true)
+if [ -n "$OLD_SESSION_ID" ]; then
+  rm -f "/tmp/claude-loop-edits-${OLD_SESSION_ID}" \
+        "/tmp/claude-loop-replans-${OLD_SESSION_ID}" \
+        "/tmp/claude-loop-bash-errors-${OLD_SESSION_ID}" \
+        "/tmp/claude-loop-reads-${OLD_SESSION_ID}" \
+        "/tmp/claude-loop-dir-replans-${OLD_SESSION_ID}" 2>/dev/null || true
+fi
+
+# Write a stable session ID for use by loop-detector.sh
 echo "$(date +%s)" > "$SESSION_ID_FILE"
 
 if [ ! -f "$SESSION_LOG" ]; then
@@ -39,3 +49,6 @@ if [ -n "$SESSIONS" ]; then
   echo "$SESSIONS"
   echo "---"
 fi
+
+# Relay check nudge — remind Claude to check for Town-Lex relay messages
+echo "RELAY CHECK: Run /relay to check for pending messages from Town-Lex (daily triage summary arrives at 06:10 JST)."

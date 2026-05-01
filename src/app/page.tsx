@@ -2,7 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { WeightActivityChart } from "@/components/weight-activity-chart";
 import { ActivityPanel } from "@/components/activity-panel";
@@ -11,7 +17,10 @@ import { TabContainer } from "@/components/dashboard/tab-container";
 import { HealthPanel } from "@/components/dashboard/health-panel";
 import { SettingsModal } from "@/components/dashboard/settings-modal";
 import { DailyCheckinModal } from "@/components/dashboard/daily-checkin-modal";
-import { CelebrationModal, checkForCelebrations } from "@/components/gamification/celebration-modal";
+import {
+  CelebrationModal,
+  checkForCelebrations,
+} from "@/components/gamification/celebration-modal";
 import { BadgeShowcase } from "@/components/gamification/badge-showcase";
 import { StreakCalendar } from "@/components/gamification/streak-calendar";
 import { AICoachPanel } from "@/components/ai-coach/ai-coach-panel";
@@ -70,7 +79,11 @@ interface Analysis {
     predictedGoalDate: string | null;
   };
   insights: string[];
-  historicalComparisons: Array<{ date: string; weight: number; message: string }>;
+  historicalComparisons: Array<{
+    date: string;
+    weight: number;
+    message: string;
+  }>;
 }
 
 interface GameState {
@@ -78,8 +91,22 @@ interface GameState {
   level: number;
   streak: number;
   lastWeighDate: string | null;
-  badges: Array<{ id: string; name: string; description: string; icon: string; earnedAt?: string }>;
-  dailyQuests: Array<{ id: string; name: string; description: string; xpReward: number; completed: boolean; progress?: number; target?: number }>;
+  badges: Array<{
+    id: string;
+    name: string;
+    description: string;
+    icon: string;
+    earnedAt?: string;
+  }>;
+  dailyQuests: Array<{
+    id: string;
+    name: string;
+    description: string;
+    xpReward: number;
+    completed: boolean;
+    progress?: number;
+    target?: number;
+  }>;
 }
 
 interface Entry {
@@ -112,9 +139,23 @@ interface ActivityStats {
   activeMinutesThisWeek: number;
   activeMinutesLastWeek: number;
   totalFlights?: number;
-  correlations: { type: "positive" | "negative" | "neutral"; message: string; detail?: string }[];
-  workoutsByType: { type: string; count: number; totalMinutes: number; totalKm: number }[];
-  recentWorkouts: { date: string; type: string; duration: number; distance: number | null }[];
+  correlations: {
+    type: "positive" | "negative" | "neutral";
+    message: string;
+    detail?: string;
+  }[];
+  workoutsByType: {
+    type: string;
+    count: number;
+    totalMinutes: number;
+    totalKm: number;
+  }[];
+  recentWorkouts: {
+    date: string;
+    type: string;
+    duration: number;
+    distance: number | null;
+  }[];
   recentSteps: { date: string; steps: number }[];
 }
 
@@ -154,7 +195,9 @@ export default function Home() {
   const [weights, setWeights] = useState<Weight[]>([]);
   const [steps, setSteps] = useState<StepData[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutData[]>([]);
-  const [activityStats, setActivityStats] = useState<ActivityStats | null>(null);
+  const [activityStats, setActivityStats] = useState<ActivityStats | null>(
+    null,
+  );
   const [sleepData, setSleepData] = useState<SleepData[]>([]);
   const [restingHR, setRestingHR] = useState<RestingHRData[]>([]);
   const [workoutRoutes, setWorkoutRoutes] = useState<WorkoutRouteData[]>([]);
@@ -169,11 +212,17 @@ export default function Home() {
   const [showCheckin, setShowCheckin] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [celebration, setCelebration] = useState<CelebrationData | null>(null);
-  const [dismissedMilestones, setDismissedMilestones] = useState<Set<string>>(new Set());
+  const [dismissedMilestones, setDismissedMilestones] = useState<Set<string>>(
+    new Set(),
+  );
   const [weeklyInsight, setWeeklyInsight] = useState<string | null>(null);
   const [generatingInsight, setGeneratingInsight] = useState(false);
   const [bodyComp, setBodyComp] = useState<{
-    current: { date: string; bodyFatPercentage: number; leanBodyMassKg: number } | null;
+    current: {
+      date: string;
+      bodyFatPercentage: number;
+      leanBodyMassKg: number;
+    } | null;
     prev30: { bodyFatPercentage: number; leanBodyMassKg: number } | null;
   }>({ current: null, prev30: null });
   const [vo2max, setVo2max] = useState<{
@@ -185,9 +234,19 @@ export default function Home() {
 
   const refreshData = useCallback(async () => {
     const [
-      weightsData, statsData, analysisData, gameData, entriesData,
-      stepsData, workoutsData, activityStatsData, sleepDataRes,
-      restingHRRes, workoutRoutesRes, bodyCompRes, vo2maxRes
+      weightsData,
+      statsData,
+      analysisData,
+      gameData,
+      entriesData,
+      stepsData,
+      workoutsData,
+      activityStatsData,
+      sleepDataRes,
+      restingHRRes,
+      workoutRoutesRes,
+      bodyCompRes,
+      vo2maxRes,
     ] = await Promise.all([
       fetch("/api/weights").then((r) => r.json()),
       fetch("/api/stats").then((r) => r.json()),
@@ -220,12 +279,15 @@ export default function Home() {
     if (bodyCompRes.length > 0) {
       setBodyComp({
         current: bodyCompRes[0],
-        prev30: bodyCompRes.find((d: { date: string }) => {
-          const daysDiff = Math.floor(
-            (new Date(bodyCompRes[0].date).getTime() - new Date(d.date).getTime()) / (1000 * 60 * 60 * 24)
-          );
-          return daysDiff >= 28 && daysDiff <= 35;
-        }) || null,
+        prev30:
+          bodyCompRes.find((d: { date: string }) => {
+            const daysDiff = Math.floor(
+              (new Date(bodyCompRes[0].date).getTime() -
+                new Date(d.date).getTime()) /
+                (1000 * 60 * 60 * 24),
+            );
+            return daysDiff >= 28 && daysDiff <= 35;
+          }) || null,
       });
     }
 
@@ -237,23 +299,28 @@ export default function Home() {
 
   useEffect(() => {
     fetch("/api/body-composition")
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         if (data.length > 0) {
           setBodyComp({
             current: data[0],
-            prev30: data.find((d: any) => {
-              const daysDiff = Math.floor((new Date(data[0].date).getTime() - new Date(d.date).getTime()) / (1000 * 60 * 60 * 24));
-              return daysDiff >= 28 && daysDiff <= 35;
-            }) || null,
+            prev30:
+              data.find((d: any) => {
+                const daysDiff = Math.floor(
+                  (new Date(data[0].date).getTime() -
+                    new Date(d.date).getTime()) /
+                    (1000 * 60 * 60 * 24),
+                );
+                return daysDiff >= 28 && daysDiff <= 35;
+              }) || null,
           });
         }
       })
       .catch(() => setBodyComp({ current: null, prev30: null }));
 
     fetch("/api/vo2max")
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setVo2max({
           current: data.current,
           prev30: data.prev30,
@@ -287,25 +354,40 @@ export default function Home() {
       fetch("/api/sleep").then((r) => r.json()),
       fetch("/api/resting-hr").then((r) => r.json()),
       fetch("/api/workout-routes").then((r) => r.json()),
-    ]).then(([weightsData, statsData, analysisData, gameData, entriesData, stepsData, workoutsData, activityStatsData, apiKeyData, sleepDataRes, restingHRRes, workoutRoutesRes]) => {
-      setWeights(weightsData);
-      setStats(statsData);
-      setAnalysis(analysisData);
-      setGameState(gameData);
-      setSteps(stepsData);
-      setWorkouts(workoutsData);
-      setActivityStats(activityStatsData);
-      setSleepData(sleepDataRes);
-      setRestingHR(restingHRRes);
-      setWorkoutRoutes(workoutRoutesRes);
-      // Load API key from database
-      if (apiKeyData.value) setApiKey(apiKeyData.value);
-      // Store all entries and find today's entry
-      setAllEntries(entriesData);
-      const todayEntryData = entriesData.find((e: Entry) => e.date === today);
-      setTodayEntry(todayEntryData || null);
-      setLoading(false);
-    });
+    ]).then(
+      ([
+        weightsData,
+        statsData,
+        analysisData,
+        gameData,
+        entriesData,
+        stepsData,
+        workoutsData,
+        activityStatsData,
+        apiKeyData,
+        sleepDataRes,
+        restingHRRes,
+        workoutRoutesRes,
+      ]) => {
+        setWeights(weightsData);
+        setStats(statsData);
+        setAnalysis(analysisData);
+        setGameState(gameData);
+        setSteps(stepsData);
+        setWorkouts(workoutsData);
+        setActivityStats(activityStatsData);
+        setSleepData(sleepDataRes);
+        setRestingHR(restingHRRes);
+        setWorkoutRoutes(workoutRoutesRes);
+        // Load API key from database
+        if (apiKeyData.value) setApiKey(apiKeyData.value);
+        // Store all entries and find today's entry
+        setAllEntries(entriesData);
+        const todayEntryData = entriesData.find((e: Entry) => e.date === today);
+        setTodayEntry(todayEntryData || null);
+        setLoading(false);
+      },
+    );
   }, [today]);
 
   // Check for celebrations when game state changes
@@ -362,7 +444,10 @@ export default function Home() {
     const newDismissed = new Set(dismissedMilestones);
     newDismissed.add(message);
     setDismissedMilestones(newDismissed);
-    localStorage.setItem("wt-dismissed-milestones", JSON.stringify([...newDismissed]));
+    localStorage.setItem(
+      "wt-dismissed-milestones",
+      JSON.stringify([...newDismissed]),
+    );
   };
 
   const generateWeeklyInsight = async () => {
@@ -377,7 +462,8 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           apiKey,
-          question: "Give me a brief weekly summary of my progress. What went well? What could I improve? Keep it to 2-3 short paragraphs.",
+          question:
+            "Give me a brief weekly summary of my progress. What went well? What could I improve? Keep it to 2-3 short paragraphs.",
         }),
       });
       const data = await response.json();
@@ -395,15 +481,19 @@ export default function Home() {
   if (loading) {
     return (
       <main className="container mx-auto p-4 max-w-6xl">
-        <div className="animate-pulse text-center py-12">Loading your weight data...</div>
+        <div className="animate-pulse text-center py-12">
+          Loading your weight data...
+        </div>
       </main>
     );
   }
 
-  const highPriorityMilestones = analysis?.milestones
-    .filter((m) => m.importance === "high" && !dismissedMilestones.has(m.message)) || [];
+  const highPriorityMilestones =
+    analysis?.milestones?.filter(
+      (m) => m.importance === "high" && !dismissedMilestones.has(m.message),
+    ) || [];
 
-  const weighDates = weights.map(w => w.date);
+  const weighDates = weights.map((w) => w.date);
 
   // Gamification content for tab
   const gamificationContent = (
@@ -416,19 +506,25 @@ export default function Home() {
               <Star className="h-5 w-5 text-xp-gold" />
               Level {gameState?.level || 1}
             </CardTitle>
-            <span className="text-sm text-muted-foreground">{gameState?.xp || 0} XP total</span>
+            <span className="text-sm text-muted-foreground">
+              {gameState?.xp || 0} XP total
+            </span>
           </div>
         </CardHeader>
         <CardContent>
-          <Progress value={((gameState?.xp || 0) % 100)} className="h-2" />
+          <Progress value={(gameState?.xp || 0) % 100} className="h-2" />
           <p className="text-xs text-muted-foreground mt-1">
-            {(gameState?.xp || 0) % 100} / 100 XP to level {(gameState?.level || 1) + 1}
+            {(gameState?.xp || 0) % 100} / 100 XP to level{" "}
+            {(gameState?.level || 1) + 1}
           </p>
         </CardContent>
       </Card>
 
       {/* Streak Calendar */}
-      <StreakCalendar currentStreak={gameState?.streak || 0} weighDates={weighDates} />
+      <StreakCalendar
+        currentStreak={gameState?.streak || 0}
+        weighDates={weighDates}
+      />
 
       {/* Daily Quests */}
       <Card>
@@ -453,17 +549,23 @@ export default function Home() {
                   <Circle className="h-4 w-4 text-muted-foreground" />
                 )}
                 <div>
-                  <p className={`text-sm ${quest.completed ? "line-through text-muted-foreground" : ""}`}>
+                  <p
+                    className={`text-sm ${quest.completed ? "line-through text-muted-foreground" : ""}`}
+                  >
                     {quest.name}
                   </p>
-                  {quest.progress !== undefined && quest.target && !quest.completed && (
-                    <p className="text-xs text-muted-foreground">
-                      {quest.progress}/{quest.target}
-                    </p>
-                  )}
+                  {quest.progress !== undefined &&
+                    quest.target &&
+                    !quest.completed && (
+                      <p className="text-xs text-muted-foreground">
+                        {quest.progress}/{quest.target}
+                      </p>
+                    )}
                 </div>
               </div>
-              <span className={`text-xs font-medium ${quest.completed ? "text-green-600" : "text-muted-foreground"}`}>
+              <span
+                className={`text-xs font-medium ${quest.completed ? "text-green-600" : "text-muted-foreground"}`}
+              >
                 +{quest.xpReward} XP
               </span>
             </div>
@@ -511,12 +613,15 @@ export default function Home() {
           {weeklyInsight ? (
             <div className="prose prose-sm max-w-none">
               {weeklyInsight.split("\n").map((p, i) => (
-                <p key={i} className="mb-2 last:mb-0 text-sm">{p}</p>
+                <p key={i} className="mb-2 last:mb-0 text-sm">
+                  {p}
+                </p>
               ))}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Click &quot;Generate&quot; to get a personalized weekly summary powered by AI.
+              Click &quot;Generate&quot; to get a personalized weekly summary
+              powered by AI.
             </p>
           )}
         </CardContent>
@@ -531,21 +636,22 @@ export default function Home() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {analysis?.insights.map((insight, i) => (
+          {analysis?.insights?.map((insight, i) => (
             <p key={i} className="text-sm">
               {insight}
             </p>
           ))}
-          {analysis?.historicalComparisons.slice(0, 2).map((comp, i) => (
+          {analysis?.historicalComparisons?.slice(0, 2).map((comp, i) => (
             <p key={`comp-${i}`} className="text-sm text-muted-foreground">
               📅 {comp.message}
             </p>
           ))}
-          {(!analysis?.insights.length && !analysis?.historicalComparisons.length) && (
-            <p className="text-sm text-muted-foreground">
-              Keep logging to unlock insights!
-            </p>
-          )}
+          {!analysis?.insights?.length &&
+            !analysis?.historicalComparisons?.length && (
+              <p className="text-sm text-muted-foreground">
+                Keep logging to unlock insights!
+              </p>
+            )}
         </CardContent>
       </Card>
 
@@ -561,32 +667,40 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-muted-foreground">This Week</p>
-              <p className={`text-lg font-semibold ${analysis?.trends.weeklyChange && analysis.trends.weeklyChange < 0 ? "text-weight-loss" : analysis?.trends.weeklyChange && analysis.trends.weeklyChange > 0 ? "text-weight-gain" : ""}`}>
-                {analysis?.trends.weeklyChange !== undefined
+              <p
+                className={`text-lg font-semibold ${analysis?.trends?.weeklyChange && analysis.trends.weeklyChange < 0 ? "text-weight-loss" : analysis?.trends?.weeklyChange && analysis.trends.weeklyChange > 0 ? "text-weight-gain" : ""}`}
+              >
+                {analysis?.trends?.weeklyChange !== undefined
                   ? `${analysis.trends.weeklyChange > 0 ? "+" : ""}${analysis.trends.weeklyChange.toFixed(1)} kg`
                   : "-"}
               </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">This Month</p>
-              <p className={`text-lg font-semibold ${analysis?.trends.monthlyChange && analysis.trends.monthlyChange < 0 ? "text-weight-loss" : analysis?.trends.monthlyChange && analysis.trends.monthlyChange > 0 ? "text-weight-gain" : ""}`}>
-                {analysis?.trends.monthlyChange !== undefined
+              <p
+                className={`text-lg font-semibold ${analysis?.trends?.monthlyChange && analysis.trends.monthlyChange < 0 ? "text-weight-loss" : analysis?.trends?.monthlyChange && analysis.trends.monthlyChange > 0 ? "text-weight-gain" : ""}`}
+              >
+                {analysis?.trends?.monthlyChange !== undefined
                   ? `${analysis.trends.monthlyChange > 0 ? "+" : ""}${analysis.trends.monthlyChange.toFixed(1)} kg`
                   : "-"}
               </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">3 Months</p>
-              <p className={`text-lg font-semibold ${analysis?.trends.threeMonthChange && analysis.trends.threeMonthChange < 0 ? "text-weight-loss" : analysis?.trends.threeMonthChange && analysis.trends.threeMonthChange > 0 ? "text-weight-gain" : ""}`}>
-                {analysis?.trends.threeMonthChange !== undefined
+              <p
+                className={`text-lg font-semibold ${analysis?.trends?.threeMonthChange && analysis.trends.threeMonthChange < 0 ? "text-weight-loss" : analysis?.trends?.threeMonthChange && analysis.trends.threeMonthChange > 0 ? "text-weight-gain" : ""}`}
+              >
+                {analysis?.trends?.threeMonthChange !== undefined
                   ? `${analysis.trends.threeMonthChange > 0 ? "+" : ""}${analysis.trends.threeMonthChange.toFixed(1)} kg`
                   : "-"}
               </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">This Year</p>
-              <p className={`text-lg font-semibold ${analysis?.trends.yearlyChange && analysis.trends.yearlyChange < 0 ? "text-weight-loss" : analysis?.trends.yearlyChange && analysis.trends.yearlyChange > 0 ? "text-weight-gain" : ""}`}>
-                {analysis?.trends.yearlyChange !== undefined
+              <p
+                className={`text-lg font-semibold ${analysis?.trends?.yearlyChange && analysis.trends.yearlyChange < 0 ? "text-weight-loss" : analysis?.trends?.yearlyChange && analysis.trends.yearlyChange > 0 ? "text-weight-gain" : ""}`}
+              >
+                {analysis?.trends?.yearlyChange !== undefined
                   ? `${analysis.trends.yearlyChange > 0 ? "+" : ""}${analysis.trends.yearlyChange.toFixed(1)} kg`
                   : "-"}
               </p>
@@ -617,20 +731,28 @@ export default function Home() {
                     <span className="text-sm text-muted-foreground">
                       {format(new Date(w.date), "MMM d, yyyy")}
                     </span>
-                    <span className="text-xs px-1.5 py-0.5 bg-muted rounded">{w.source}</span>
+                    <span className="text-xs px-1.5 py-0.5 bg-muted rounded">
+                      {w.source}
+                    </span>
                   </div>
                   <div className="flex items-center gap-3">
                     {change !== null && (
                       <span
                         className={`text-xs ${
-                          change < 0 ? "text-weight-loss" : change > 0 ? "text-weight-gain" : "text-muted-foreground"
+                          change < 0
+                            ? "text-weight-loss"
+                            : change > 0
+                              ? "text-weight-gain"
+                              : "text-muted-foreground"
                         }`}
                       >
                         {change > 0 ? "+" : ""}
                         {change.toFixed(1)}
                       </span>
                     )}
-                    <span className="font-medium">{w.weightKg.toFixed(1)} kg</span>
+                    <span className="font-medium">
+                      {w.weightKg.toFixed(1)} kg
+                    </span>
                   </div>
                 </div>
               );
@@ -654,7 +776,11 @@ export default function Home() {
           />
           <h1 className="text-3xl font-bold">HealthPulse</h1>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => setShowSettings(true)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowSettings(true)}
+        >
           <Settings className="h-5 w-5" />
         </Button>
       </div>
@@ -676,11 +802,23 @@ export default function Home() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-sm text-muted-foreground">Body Fat</div>
-              <div className="text-2xl font-bold">{bodyComp.current.bodyFatPercentage.toFixed(1)}%</div>
+              <div className="text-2xl font-bold">
+                {bodyComp.current.bodyFatPercentage.toFixed(1)}%
+              </div>
               {bodyComp.prev30 && (
-                <div className={`text-xs ${bodyComp.current.bodyFatPercentage < bodyComp.prev30.bodyFatPercentage ? 'text-green-600' : 'text-red-600'}`}>
-                  {(bodyComp.current.bodyFatPercentage - bodyComp.prev30.bodyFatPercentage) > 0 ? '+' : ''}
-                  {(bodyComp.current.bodyFatPercentage - bodyComp.prev30.bodyFatPercentage).toFixed(1)}% (30d)
+                <div
+                  className={`text-xs ${bodyComp.current.bodyFatPercentage < bodyComp.prev30.bodyFatPercentage ? "text-green-600" : "text-red-600"}`}
+                >
+                  {bodyComp.current.bodyFatPercentage -
+                    bodyComp.prev30.bodyFatPercentage >
+                  0
+                    ? "+"
+                    : ""}
+                  {(
+                    bodyComp.current.bodyFatPercentage -
+                    bodyComp.prev30.bodyFatPercentage
+                  ).toFixed(1)}
+                  % (30d)
                 </div>
               )}
             </CardContent>
@@ -688,11 +826,23 @@ export default function Home() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-sm text-muted-foreground">Lean Mass</div>
-              <div className="text-2xl font-bold">{bodyComp.current.leanBodyMassKg.toFixed(1)} kg</div>
+              <div className="text-2xl font-bold">
+                {bodyComp.current.leanBodyMassKg.toFixed(1)} kg
+              </div>
               {bodyComp.prev30 && (
-                <div className={`text-xs ${bodyComp.current.leanBodyMassKg > bodyComp.prev30.leanBodyMassKg ? 'text-green-600' : 'text-red-600'}`}>
-                  {(bodyComp.current.leanBodyMassKg - bodyComp.prev30.leanBodyMassKg) > 0 ? '+' : ''}
-                  {(bodyComp.current.leanBodyMassKg - bodyComp.prev30.leanBodyMassKg).toFixed(1)} kg (30d)
+                <div
+                  className={`text-xs ${bodyComp.current.leanBodyMassKg > bodyComp.prev30.leanBodyMassKg ? "text-green-600" : "text-red-600"}`}
+                >
+                  {bodyComp.current.leanBodyMassKg -
+                    bodyComp.prev30.leanBodyMassKg >
+                  0
+                    ? "+"
+                    : ""}
+                  {(
+                    bodyComp.current.leanBodyMassKg -
+                    bodyComp.prev30.leanBodyMassKg
+                  ).toFixed(1)}{" "}
+                  kg (30d)
                 </div>
               )}
             </CardContent>
@@ -708,7 +858,9 @@ export default function Home() {
               <div className="flex items-start gap-3">
                 <Trophy className="h-6 w-6 text-yellow-600 mt-1" />
                 <div>
-                  <h3 className="font-semibold text-yellow-800">Milestone Achieved!</h3>
+                  <h3 className="font-semibold text-yellow-800">
+                    Milestone Achieved!
+                  </h3>
                   {highPriorityMilestones.map((m, i) => (
                     <p key={i} className="text-yellow-700">
                       {m.message}
@@ -720,7 +872,11 @@ export default function Home() {
                 variant="ghost"
                 size="icon"
                 className="text-yellow-600 hover:text-yellow-800 hover:bg-yellow-100"
-                onClick={() => highPriorityMilestones.forEach(m => dismissMilestone(m.message))}
+                onClick={() =>
+                  highPriorityMilestones.forEach((m) =>
+                    dismissMilestone(m.message),
+                  )
+                }
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -736,18 +892,18 @@ export default function Home() {
             Progress
             <span
               className={`text-sm font-normal ${
-                analysis?.trends.trend === "losing"
+                analysis?.trends?.trend === "losing"
                   ? "text-weight-loss"
-                  : analysis?.trends.trend === "gaining"
-                  ? "text-weight-gain"
-                  : "text-muted-foreground"
+                  : analysis?.trends?.trend === "gaining"
+                    ? "text-weight-gain"
+                    : "text-muted-foreground"
               }`}
             >
-              {analysis?.trends.trend === "losing"
+              {analysis?.trends?.trend === "losing"
                 ? "📉 Trending down"
-                : analysis?.trends.trend === "gaining"
-                ? "📈 Trending up"
-                : "Stable"}
+                : analysis?.trends?.trend === "gaining"
+                  ? "📈 Trending up"
+                  : "Stable"}
             </span>
           </CardTitle>
           <CardDescription>
@@ -764,7 +920,9 @@ export default function Home() {
               goalWeight={stats?.goal ?? undefined}
             />
           ) : (
-            <p className="text-muted-foreground text-center py-8">No weight data yet.</p>
+            <p className="text-muted-foreground text-center py-8">
+              No weight data yet.
+            </p>
           )}
         </CardContent>
       </Card>

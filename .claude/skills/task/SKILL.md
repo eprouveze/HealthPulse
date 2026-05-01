@@ -111,7 +111,7 @@ Tell the user:
 - Project: <project>
 - Priority: <priority>
 - Night Shift will pick it up on the next hourly run
-- They can also trigger immediately: `ssh mac-mini-m2 "launchctl kickstart -k gui/$(id -u)/com.goldencorpus.nightshift"`
+- They can also trigger immediately: `scripts/nightshift-control.sh trigger`
 
 ## Task Types — What to Include
 
