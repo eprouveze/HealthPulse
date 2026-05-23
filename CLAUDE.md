@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-## Overview
+## Project Overview
 
 Personal health dashboard — imports Apple Health data into SQLite, displays weight/activity/sleep trends, AI coaching via Claude API. **Mac desktop only.**
 
@@ -11,7 +11,7 @@ Personal health dashboard — imports Apple Health data into SQLite, displays we
 - Tailwind CSS + shadcn/ui + Recharts
 - Anthropic Claude API for AI coaching
 
-## Commands
+## Quick Commands
 
 ```bash
 npm run dev              # Dev server (port 4000)
@@ -54,3 +54,7 @@ npm run watch            # Watch mode for auto-import
 ## Nutrition Sprint Feature
 
 Time-boxed food tracking (10/14/20 days) in Health tab. Uses Claude AI for calorie estimation from natural language descriptions. AI Coach receives nutrition context during active sprints.
+
+---
+
+Last reviewed: 2026-05-23
