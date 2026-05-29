@@ -434,7 +434,7 @@ ${nutritionContext}`;
     }
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250929",
+      model: "claude-opus-4-8",
       max_tokens: 2048,
       system: SYSTEM_PROMPT + (PERSONAL_CONTEXT ? `\n\n${PERSONAL_CONTEXT}` : "") + `\n\n${context}`,
       messages,

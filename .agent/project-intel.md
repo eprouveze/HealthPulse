@@ -8,7 +8,7 @@ primary_stack:
   - TypeScript 5.7
   - SQLite (better-sqlite3)
   - Drizzle ORM
-  - Claude API (Sonnet 4.5)
+  - Claude API (Opus 4.8)
   - Tailwind CSS
   - Recharts
   - Radix UI
@@ -36,7 +36,7 @@ Personal health dashboard for Mac that integrates Apple Health data with AI coac
 - **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS, Radix UI, shadcn/ui
 - **Database**: SQLite via better-sqlite3 + Drizzle ORM
 - **Charts**: Recharts for interactive visualization
-- **AI**: Anthropic Claude API (Sonnet 4.5 for coaching)
+- **AI**: Anthropic Claude API (Opus 4.8 for coaching)
 - **Maps**: Leaflet for GPS route visualization
 - **Dev**: TypeScript 5.7, Turbopack
 

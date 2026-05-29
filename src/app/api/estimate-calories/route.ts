@@ -47,7 +47,7 @@ Important:
 - If the user mentions a brand or specific product, use known nutritional data if available`;
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250929",
+      model: "claude-opus-4-8",
       max_tokens: 500,
       messages: [
         {

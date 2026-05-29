@@ -118,7 +118,7 @@ When you use the AI Coach feature, your health data is sent to Anthropic's Claud
 - **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS, shadcn/ui
 - **Charts**: Recharts
 - **Database**: SQLite with Drizzle ORM
-- **AI**: Anthropic Claude API (Sonnet 4.5)
+- **AI**: Anthropic Claude API (Opus 4.8)
 - **Maps**: Leaflet for GPS route visualization
 
 ## Getting Started
