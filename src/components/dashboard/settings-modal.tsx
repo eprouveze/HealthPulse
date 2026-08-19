@@ -51,9 +51,11 @@ export function SettingsModal({
 
   const handleExportData = async () => {
     try {
-      const response = await fetch("/api/weights");
-      const weights = await response.json();
-      const blob = new Blob([JSON.stringify(weights, null, 2)], { type: "application/json" });
+      const response = await fetch("/api/export");
+      const data = await response.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -110,10 +112,17 @@ export function SettingsModal({
                     step="0.1"
                     value={goalWeight}
                     onChange={(e) => setGoalWeight(e.target.value)}
-                    placeholder={currentGoal ? `Current: ${currentGoal} kg` : "Target weight in kg"}
+                    placeholder={
+                      currentGoal
+                        ? `Current: ${currentGoal} kg`
+                        : "Target weight in kg"
+                    }
                     className="flex-1"
                   />
-                  <Button onClick={handleSaveGoal} disabled={savingGoal || !goalWeight}>
+                  <Button
+                    onClick={handleSaveGoal}
+                    disabled={savingGoal || !goalWeight}
+                  >
                     {savingGoal ? "Saving..." : "Set"}
                   </Button>
                 </div>
@@ -162,13 +171,18 @@ export function SettingsModal({
                   Data Management
                 </label>
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={handleExportData} className="flex-1">
+                  <Button
+                    variant="outline"
+                    onClick={handleExportData}
+                    className="flex-1"
+                  >
                     <Download className="h-4 w-4 mr-2" />
                     Export Data (JSON)
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Data syncs automatically from Apple Health via the import script.
+                  Data syncs automatically from Apple Health via the import
+                  script.
                 </p>
               </div>
             </div>
