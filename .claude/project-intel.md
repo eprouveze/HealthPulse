@@ -1,5 +1,5 @@
 ---
-status: stable
+status: parked
 revenue_potential: none
 last_meaningful_commit: "2026-01-17"
 primary_stack:
