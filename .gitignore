@@ -62,3 +62,8 @@ imports/*
 
 # Fleet sync manifest (auto-generated)
 .claude/.fleet-manifest.json
+
+# Agent and Claude harness (local only)
+.claude/
+.agent/
+
