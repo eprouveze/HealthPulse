@@ -55,6 +55,13 @@ npm run watch            # Watch mode for auto-import
 
 Time-boxed food tracking (10/14/20 days) in Health tab. Uses Claude AI for calorie estimation from natural language descriptions. AI Coach receives nutrition context during active sprints.
 
+## Danger zones
+
+- The SQLite DB holds irreplaceable personal health history. Import auto-backs-up first;
+  never run a raw destructive migration without a manual copy of the DB file.
+- Import only writes measurement tables — `settings`, `goals`, `entries`, `nutrition_sprints`,
+  `food_entries` are user-owned and must stay untouched by any import/sync code.
+
 ---
 
-Last reviewed: 2026-05-23
+Last reviewed: 2026-07-09
