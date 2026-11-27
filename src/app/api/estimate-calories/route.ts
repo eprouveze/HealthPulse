@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
+import { CLAUDE_MODEL } from "@/lib/models";
 
 export async function POST(request: Request) {
   try {
@@ -47,7 +48,7 @@ Important:
 - If the user mentions a brand or specific product, use known nutritional data if available`;
 
     const response = await client.messages.create({
-      model: "claude-opus-4-8",
+      model: CLAUDE_MODEL,
       max_tokens: 500,
       messages: [
         {

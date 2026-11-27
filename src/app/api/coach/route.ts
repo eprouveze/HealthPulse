@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { weights, goals, dailySteps, workouts, dailySleep, restingHeartRate, workoutRoutes } from "@/lib/schema";
 import { desc, eq, sql } from "drizzle-orm";
+import { CLAUDE_MODEL } from "@/lib/models";
 
 // Personal medical context from environment (optional, for personalized coaching)
 const PERSONAL_CONTEXT = process.env.PERSONAL_MEDICAL_CONTEXT || "";
@@ -434,7 +435,7 @@ ${nutritionContext}`;
     }
 
     const response = await client.messages.create({
-      model: "claude-opus-4-8",
+      model: CLAUDE_MODEL,
       max_tokens: 2048,
       system: SYSTEM_PROMPT + (PERSONAL_CONTEXT ? `\n\n${PERSONAL_CONTEXT}` : "") + `\n\n${context}`,
       messages,
